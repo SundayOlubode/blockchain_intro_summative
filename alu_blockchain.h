@@ -17,6 +17,11 @@
 #define WALLETS_FILE "wallets.dat"
 #define NUM_KITCHENS 10
 
+/* Token definitions */
+#define TOKEN_NAME "Leaders Token"
+#define TOKEN_SYMBOL "LT"
+#define INITIAL_SUPPLY 1000000
+
 /* Domain definitions */
 #define STUDENT_DOMAIN "@alustudent.com"
 #define STAFF_DOMAIN "@alueducation.com"
@@ -75,6 +80,15 @@ typedef struct
         double balance;
 } VendorProfile;
 
+/* Token Structure */
+typedef struct
+{
+        char token_name[50];
+        char symbol[5];
+        unsigned int total_supply;
+        unsigned int circulating_supply;
+} Token;
+
 /* Blockchain related structures */
 typedef struct
 {
@@ -132,10 +146,32 @@ typedef struct
         char kitchen_name[MAX_NAME];
 } StoredWallet;
 
+typedef struct
+{
+        StudentProfile profile;
+        Wallet wallet;
+} StudentProfileWithWallet;
+
+typedef struct
+{
+        StaffProfile profile;
+        Wallet wallet;
+} StaffProfileWithWallet;
+
+typedef struct
+{
+        VendorProfile profile;
+        Wallet wallet;
+} VendorProfileWithWallet;
+
+const VendorProfile *get_kitchen_vendor(int index);
+void print_kitchen_info(const VendorProfile *kitchen);
+
 /* Function prototypes */
+void generate_hash(const char *input, char *output);
 Blockchain *initialize_blockchain(void);
 int verify_email_domain(const char *email);
-Wallet *create_wallet(const char *email);
+Wallet *create_wallet(const char *email, const char *kitchen_name);
 Wallet *load_wallet_by_key(const char *private_key);
 int create_transaction(Blockchain *chain, Wallet *from,
                        const char *to_address, double amount,
@@ -145,16 +181,18 @@ void cleanup_blockchain(Blockchain *chain);
 void print_transaction_history(Blockchain *chain, Wallet *wallet);
 
 /* Profile management */
-StudentProfile *create_student_profile(const char *name, const char *email,
-                                       int year, const char *program);
-StaffProfile *create_staff_profile(const char *name, const char *email,
-                                   const char *department, const char *role);
-VendorProfile *create_vendor_profile(const char *name, const char *email);
+StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
+                                                 int year, const char *program);
+StaffProfileWithWallet *create_staff_profile(const char *name, const char *email,
+                                             const char *department, const char *role);
+VendorProfileWithWallet *create_vendor_profile(const char *name, const char *email);
 int save_profiles_to_file(void);
 int load_profiles_from_file(void);
 int check_email_exists(const char *email);
 UserType get_user_type_from_email(const char *email);
 int save_wallet(const char *email, const char *private_key,
                 const char *address, const char *kitchen_name);
+Wallet *create_student_wallet(StudentProfile *profile, const char *name, const char *email,
+                              int year, const char *program);
 
 #endif /* ALU_BLOCKCHAIN_H */

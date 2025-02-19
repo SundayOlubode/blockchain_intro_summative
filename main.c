@@ -2,6 +2,16 @@
 #include "alu_blockchain.h"
 #include "config.h"
 
+/* Function prototypes */
+void display_menu(void);
+void display_payment_menu(void);
+void display_cafeteria_menu(void);
+void get_string_input(const char *prompt, char *buffer, size_t size);
+void clear_input_buffer(void);
+int process_payment(Blockchain *chain, Wallet *wallet);
+void print_transaction_history(Blockchain *chain, Wallet *wallet);
+void configure_system(void);
+
 /**
  * main - Entry point
  * Return: 0 on success, 1 on failure
@@ -14,6 +24,8 @@ int main(void)
         char private_key[HASH_LENGTH + 1];
         int choice;
         Config *config;
+
+        printf("\nALU Private Blockchain Network\n\n");
 
         /* Load configuration */
         config = load_config();
@@ -44,7 +56,7 @@ int main(void)
                 printf("No existing profiles found. Starting fresh.\n");
         }
 
-        printf("Welcome to ALU Payment System\n");
+        printf("\nWelcome to ALU Payment System\n");
         printf("Token: %s (%s)\n", chain->token.token_name, chain->token.symbol);
         printf("Total Supply: %u %s\n", chain->token.total_supply, chain->token.symbol);
 
@@ -69,6 +81,9 @@ int main(void)
                         char role[30];
                         int year;
                         void *profile = NULL;
+                        StudentProfileWithWallet *studentDetail = NULL;
+                        VendorProfileWithWallet *vendorDetail = NULL;
+                        StaffProfileWithWallet *staffDetail = NULL;
 
                         printf("\n=== Create New Wallet ===\n");
                         get_string_input("Enter your name: ", name, MAX_NAME);
@@ -94,19 +109,25 @@ int main(void)
                                 scanf("%d", &year);
                                 clear_input_buffer();
                                 get_string_input("Enter program: ", program, 50);
-                                profile = create_student_profile(name, email, year, program);
+                                studentDetail = create_student_profile(name, email, year, program);
+                                profile = studentDetail ? &studentDetail->profile : NULL;
+                                current_wallet = studentDetail ? &studentDetail->wallet : NULL;
                         }
                         else if (strstr(email, STAFF_DOMAIN))
                         {
                                 get_string_input("Enter department: ", department, 50);
                                 get_string_input("Enter role: ", role, 30);
-                                profile = create_staff_profile(name, email, department, role);
+                                staffDetail = create_staff_profile(name, email, department, role);
+                                profile = staffDetail ? &staffDetail->profile : NULL;
+                                current_wallet = staffDetail ? &staffDetail->wallet : NULL;
                         }
                         else if (strstr(email, VENDOR_DOMAIN))
                         {
                                 char kitchen_name[MAX_NAME];
                                 get_string_input("Enter kitchen name: ", kitchen_name, MAX_NAME);
-                                profile = create_vendor_profile(kitchen_name, email);
+                                vendorDetail = create_vendor_profile(kitchen_name, email);
+                                profile = vendorDetail ? &vendorDetail->profile : NULL;
+                                current_wallet = vendorDetail ? &vendorDetail->wallet : NULL;
                         }
 
                         if (!profile)
@@ -115,13 +136,13 @@ int main(void)
                                 break;
                         }
 
-                        if (current_wallet)
-                        {
-                                printf("Logging out of current wallet...\n");
-                                free(current_wallet);
-                        }
+                        // if (current_wallet)
+                        // {
+                        //         printf("Logging out of current wallet...\n");
+                        //         free(current_wallet);
+                        // }
 
-                        current_wallet = create_wallet(email);
+                        // current_wallet = create_wallet(email);
                         if (current_wallet)
                         {
                                 printf("\nWallet created successfully!\n");
@@ -237,7 +258,7 @@ int main(void)
                         break;
 
                 case 9: /* Configure System */
-                        configure_system();
+                        // configure_system();
                         break;
 
                 case 10: /* Exit */
@@ -255,16 +276,6 @@ int main(void)
 
         return 0;
 }
-
-/* Function prototypes */
-void display_menu(void);
-void display_payment_menu(void);
-void display_cafeteria_menu(void);
-void get_string_input(const char *prompt, char *buffer, size_t size);
-void clear_input_buffer(void);
-int process_payment(Blockchain *chain, Wallet *wallet);
-void print_transaction_history(Blockchain *chain, Wallet *wallet);
-void configure_system(void);
 
 /**
  * display_menu - Show main menu options

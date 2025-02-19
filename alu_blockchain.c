@@ -1,3 +1,4 @@
+/* alu_blockchain.c */
 #include "alu_blockchain.h"
 
 /**
@@ -25,28 +26,6 @@ void generate_hash(const char *input, char *output)
         output[64] = '\0';
 
         EVP_MD_CTX_free(mdctx);
-}
-
-/**
- * calculate_block_hash - Calculate hash for a block
- * @block: Block to hash
- * @output: Buffer to store hash
- */
-void calculate_block_hash(Block *block, char *output)
-{
-        char temp[512];
-
-        /* Ensure we don't overflow the buffer */
-        if (strlen(block->previous_hash) + strlen(block->timestamp) + 50 >= 512)
-        {
-                strcpy(output, "0000000000000000000000000000000000000000000000000000000000000000");
-                return;
-        }
-
-        sprintf(temp, "%u%s%s%u",
-                block->index, block->previous_hash,
-                block->timestamp, block->nonce);
-        generate_hash(temp, output);
 }
 
 /**
@@ -107,54 +86,56 @@ Blockchain *initialize_blockchain(void)
  */
 int verify_email_domain(const char *email)
 {
-        regex_t regex;
-        int reti;
-        char *pattern = "^[a-zA-Z0-9._%+-]+@(alueducation\\.com|"
-                        "alustudent\\.com|si\\.alueducation\\.com)$";
+        const char *domain;
 
-        reti = regcomp(&regex, pattern, REG_EXTENDED);
-        if (reti)
+        if (!email)
                 return 0;
 
-        reti = regexec(&regex, email, 0, NULL, 0);
-        regfree(&regex);
+        domain = strstr(email, "@");
+        if (!domain)
+                return 0;
 
-        return (reti == 0);
+        if (strcmp(domain, STUDENT_DOMAIN) == 0 ||
+            strcmp(domain, STAFF_DOMAIN) == 0 ||
+            strcmp(domain, VENDOR_DOMAIN) == 0)
+                return 1;
+
+        return 0;
 }
 
-/**
- * create_wallet - Create new wallet
- * @email: User email
- * Return: New wallet or NULL on failure
- */
-Wallet *create_wallet(const char *email)
-{
-        Wallet *wallet;
-        char temp[MAX_EMAIL + 20];
-        time_t now;
+// /**
+//  * create_wallet - Create new wallet
+//  * @email: User email
+//  * Return: New wallet or NULL on failure
+//  */
+// Wallet *create_wallet(const char *email)
+// {
+//         Wallet *wallet;
+//         char temp[MAX_EMAIL + 20];
+//         time_t now;
 
-        if (!verify_email_domain(email))
-                return NULL;
+//         if (!verify_email_domain(email))
+//                 return NULL;
 
-        wallet = malloc(sizeof(Wallet));
-        if (!wallet)
-                return NULL;
+//         wallet = malloc(sizeof(Wallet));
+//         if (!wallet)
+//                 return NULL;
 
-        strncpy(wallet->email, email, MAX_EMAIL - 1);
-        wallet->email[MAX_EMAIL - 1] = '\0';
-        wallet->balance = 100.0; /* Initial balance for testing */
+//         strncpy(wallet->email, email, MAX_EMAIL - 1);
+//         wallet->email[MAX_EMAIL - 1] = '\0';
+//         wallet->balance = 100.0; /* Initial balance for testing */
 
-        /* Generate wallet address */
-        time(&now);
-        sprintf(temp, "%s%ld", email, now);
-        generate_hash(temp, wallet->address);
+//         /* Generate wallet address */
+//         time(&now);
+//         sprintf(temp, "%s%ld", email, now);
+//         generate_hash(temp, wallet->address);
 
-        /* Generate private key */
-        sprintf(temp, "%s%ld%s", email, now, wallet->address);
-        generate_hash(temp, wallet->private_key);
+//         /* Generate private key */
+//         sprintf(temp, "%s%ld%s", email, now, wallet->address);
+//         generate_hash(temp, wallet->private_key);
 
-        return wallet;
-}
+//         return wallet;
+// }
 
 /**
  * create_transaction - Create new transaction
@@ -204,7 +185,8 @@ int create_transaction(Blockchain *chain, Wallet *from,
 int validate_chain(Blockchain *chain)
 {
         Block *current;
-        char temp_hash[HASH_LENGTH + 1];
+        char temp[512];
+        char calc_hash[HASH_LENGTH + 1];
         unsigned int i;
 
         if (!chain || !chain->genesis)
@@ -218,8 +200,12 @@ int validate_chain(Blockchain *chain)
                         return 0;
 
                 /* Verify current block's hash */
-                calculate_block_hash(current, temp_hash);
-                if (strcmp(temp_hash, current->current_hash) != 0)
+                sprintf(temp, "%u%s%s%u",
+                        current->index, current->previous_hash,
+                        current->timestamp, current->nonce);
+                generate_hash(temp, calc_hash);
+
+                if (strcmp(calc_hash, current->current_hash) != 0)
                         return 0;
 
                 /* Verify transactions in block */
@@ -232,56 +218,6 @@ int validate_chain(Blockchain *chain)
                 current = current->next;
         }
         return 1;
-}
-
-/**
- * load_wallet - Load wallet using private key
- * @private_key: Private key to load wallet
- * Return: Loaded wallet or NULL on failure
- */
-Wallet *load_wallet(const char *private_key)
-{
-        Wallet *wallet;
-
-        if (!private_key)
-                return NULL;
-
-        wallet = malloc(sizeof(Wallet));
-        if (!wallet)
-                return NULL;
-
-        /* TODO: Implement actual wallet loading from private key */
-        /* This is a demo implementation */
-        strncpy(wallet->private_key, private_key, HASH_LENGTH);
-        wallet->private_key[HASH_LENGTH] = '\0';
-        /* For demo purposes, generate a demo address */
-        generate_hash(private_key, wallet->address);
-        wallet->balance = 1000.0; /* Demo balance */
-
-        return wallet;
-}
-
-/**
- * cleanup_blockchain - Free blockchain memory
- * @chain: Blockchain to cleanup
- */
-void cleanup_blockchain(Blockchain *chain)
-{
-        Block *current;
-        Block *next;
-
-        if (!chain)
-                return;
-
-        current = chain->genesis;
-        while (current)
-        {
-                next = current->next;
-                free(current);
-                current = next;
-        }
-
-        free(chain);
 }
 
 /**
@@ -322,11 +258,14 @@ void print_transaction_history(Blockchain *chain, Wallet *wallet)
                                 case LIBRARY_FINE:
                                         printf("Library Fine\n");
                                         break;
+                                case HEALTH_INSURANCE:
+                                        printf("Health Insurance\n");
+                                        break;
                                 case TOKEN_TRANSFER:
                                         printf("Token Transfer\n");
                                         break;
                                 }
-                                printf("Amount: %.2f %s\n", trans->amount, "LT");
+                                printf("Amount: %.2f %s\n", trans->amount, TOKEN_SYMBOL);
                                 printf("From: %.16s...\n", trans->from_address);
                                 printf("To: %.16s...\n", trans->to_address);
                                 printf("Time: %s", ctime(&trans->timestamp));
@@ -337,4 +276,27 @@ void print_transaction_history(Blockchain *chain, Wallet *wallet)
 
         if (!found)
                 printf("No transactions found.\n");
+}
+
+/**
+ * cleanup_blockchain - Free blockchain memory
+ * @chain: Blockchain to cleanup
+ */
+void cleanup_blockchain(Blockchain *chain)
+{
+        Block *current;
+        Block *next;
+
+        if (!chain)
+                return;
+
+        current = chain->genesis;
+        while (current)
+        {
+                next = current->next;
+                free(current);
+                current = next;
+        }
+
+        free(chain);
 }

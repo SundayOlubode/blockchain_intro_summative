@@ -72,18 +72,18 @@ int load_profiles_from_file(void)
 }
 
 /**
- * create_student_profile - Create new student profile
+ * create_student_profile - Create new student profile and wallet
  * @name: Student's full name
  * @email: Student's email address
  * @year: Year of study
  * @program: Study program/major
- * Return: New student profile or NULL on failure
+ * Return: Combined profile and wallet struct or NULL on failure
  */
-StudentProfile *create_student_profile(const char *name, const char *email,
-                                       int year, const char *program)
+StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
+                                                 int year, const char *program)
 {
         Wallet *wallet;
-        StudentProfile *profile;
+        StudentProfileWithWallet *combined;
 
         if (!name || !email || !program || year < 1 || year > 4)
                 return NULL;
@@ -107,34 +107,46 @@ StudentProfile *create_student_profile(const char *name, const char *email,
         }
 
         /* Create wallet first */
-        wallet = create_wallet(email);
+        wallet = create_wallet(email, NULL);
         if (!wallet)
         {
                 printf("Failed to create wallet\n");
                 return NULL;
         }
 
+        /* Allocate memory for combined struct */
+        combined = (StudentProfileWithWallet *)malloc(sizeof(StudentProfileWithWallet));
+        if (!combined)
+        {
+                printf("Failed to allocate memory for profile and wallet\n");
+                free(wallet);
+                return NULL;
+        }
+
         /* Initialize profile */
-        profile = &students[student_count];
-        profile->student_id = next_student_id++;
-        strncpy(profile->name, name, MAX_NAME - 1);
-        strncpy(profile->email, email, MAX_EMAIL - 1);
-        profile->year_of_study = year;
-        strncpy(profile->program, program, 49);
-        strncpy(profile->wallet_address, wallet->address, HASH_LENGTH);
+        combined->profile.student_id = next_student_id++;
+        strncpy(combined->profile.name, name, MAX_NAME - 1);
+        strncpy(combined->profile.email, email, MAX_EMAIL - 1);
+        combined->profile.year_of_study = year;
+        strncpy(combined->profile.program, program, 49);
+        strncpy(combined->profile.wallet_address, wallet->address, HASH_LENGTH);
+
+        /* Copy wallet into combined struct */
+        memcpy(&combined->wallet, wallet, sizeof(Wallet));
 
         printf("\nStudent Profile Created:\n");
-        printf("ID: %u\n", profile->student_id);
-        printf("Name: %s\n", profile->name);
-        printf("Email: %s\n", profile->email);
-        printf("Year: %d\n", profile->year_of_study);
-        printf("Program: %s\n", profile->program);
-        printf("Wallet Address: %s\n", profile->wallet_address);
+        printf("ID: %u\n", combined->profile.student_id);
+        printf("Name: %s\n", combined->profile.name);
+        printf("Email: %s\n", combined->profile.email);
+        printf("Year: %d\n", combined->profile.year_of_study);
+        printf("Program: %s\n", combined->profile.program);
+        printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
         student_count++;
-        free(wallet);
+        free(wallet); // Free temporary wallet
+
         save_profiles_to_file();
-        return profile;
+        return combined;
 }
 
 /**
@@ -145,11 +157,11 @@ StudentProfile *create_student_profile(const char *name, const char *email,
  * @role: Staff role
  * Return: New staff profile or NULL on failure
  */
-StaffProfile *create_staff_profile(const char *name, const char *email,
-                                   const char *department, const char *role)
+StaffProfileWithWallet *create_staff_profile(const char *name, const char *email,
+                                             const char *department, const char *role)
 {
         Wallet *wallet;
-        StaffProfile *profile;
+        StaffProfileWithWallet *combined;
 
         if (!name || !email || !department || !role)
                 return NULL;
@@ -172,33 +184,45 @@ StaffProfile *create_staff_profile(const char *name, const char *email,
                 return NULL;
         }
 
-        wallet = create_wallet(email);
+        wallet = create_wallet(email, NULL);
         if (!wallet)
         {
                 printf("Failed to create wallet\n");
                 return NULL;
         }
 
-        profile = &staff[staff_count];
-        profile->staff_id = next_staff_id++;
-        strncpy(profile->name, name, MAX_NAME - 1);
-        strncpy(profile->email, email, MAX_EMAIL - 1);
-        strncpy(profile->department, department, 49);
-        strncpy(profile->role, role, 29);
-        strncpy(profile->wallet_address, wallet->address, HASH_LENGTH);
+        /* Allocate memory for combined struct */
+        combined = (StaffProfileWithWallet *)malloc(sizeof(StaffProfileWithWallet));
+        if (!combined)
+        {
+                printf("Failed to allocate memory for staff profile and wallet\n");
+                free(wallet);
+                return NULL;
+        }
+
+        /* Initialize staff profile */
+        combined->profile.staff_id = next_staff_id++;
+        strncpy(combined->profile.name, name, MAX_NAME - 1);
+        strncpy(combined->profile.email, email, MAX_EMAIL - 1);
+        strncpy(combined->profile.department, department, 49);
+        strncpy(combined->profile.role, role, 29);
+        strncpy(combined->profile.wallet_address, wallet->address, HASH_LENGTH);
+
+        /* Copy wallet into combined struct */
+        memcpy(&combined->wallet, wallet, sizeof(Wallet));
 
         printf("\nStaff Profile Created:\n");
-        printf("ID: %u\n", profile->staff_id);
-        printf("Name: %s\n", profile->name);
-        printf("Email: %s\n", profile->email);
-        printf("Department: %s\n", profile->department);
-        printf("Role: %s\n", profile->role);
-        printf("Wallet Address: %s\n", profile->wallet_address);
+        printf("ID: %u\n", combined->profile.staff_id);
+        printf("Name: %s\n", combined->profile.name);
+        printf("Email: %s\n", combined->profile.email);
+        printf("Department: %s\n", combined->profile.department);
+        printf("Role: %s\n", combined->profile.role);
+        printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
         staff_count++;
         free(wallet);
         save_profiles_to_file();
-        return profile;
+        return combined;
 }
 
 /**
@@ -207,12 +231,12 @@ StaffProfile *create_staff_profile(const char *name, const char *email,
  * @email: Vendor's email
  * Return: New vendor profile or NULL on failure
  */
-VendorProfile *create_vendor_profile(const char *name, const char *email)
+VendorProfileWithWallet *create_vendor_profile(const char *kitchen_name, const char *email)
 {
         Wallet *wallet;
-        VendorProfile *profile;
+        VendorProfileWithWallet *combined;
 
-        if (!name || !email)
+        if (!kitchen_name || !email)
                 return NULL;
 
         if (strstr(email, VENDOR_DOMAIN) == NULL)
@@ -233,61 +257,73 @@ VendorProfile *create_vendor_profile(const char *name, const char *email)
                 return NULL;
         }
 
-        wallet = create_wallet(email);
+        wallet = create_wallet(email, kitchen_name);
         if (!wallet)
         {
                 printf("Failed to create wallet\n");
                 return NULL;
         }
 
-        profile = &vendors[vendor_count];
-        profile->vendor_id = next_vendor_id++;
-        strncpy(profile->kitchen_name, name, MAX_NAME - 1);
-        strncpy(profile->email, email, MAX_EMAIL - 1);
-        strncpy(profile->wallet_address, wallet->address, HASH_LENGTH);
-        profile->balance = 0.0;
+        /* Allocate memory for combined struct */
+        combined = (VendorProfileWithWallet *)malloc(sizeof(VendorProfileWithWallet));
+        if (!combined)
+        {
+                printf("Failed to allocate memory for vendor profile and wallet\n");
+                free(wallet);
+                return NULL;
+        }
+
+        /* Initialize vendor profile */
+        combined->profile.vendor_id = next_vendor_id++;
+        strncpy(combined->profile.kitchen_name, kitchen_name, MAX_NAME - 1);
+        strncpy(combined->profile.email, email, MAX_EMAIL - 1);
+        strncpy(combined->profile.wallet_address, wallet->address, HASH_LENGTH);
+        combined->profile.balance = 0.0;
+
+        /* Copy wallet into combined struct */
+        memcpy(&combined->wallet, wallet, sizeof(Wallet));
 
         printf("\nVendor Profile Created:\n");
-        printf("ID: %u\n", profile->vendor_id);
-        printf("Kitchen Name: %s\n", profile->kitchen_name);
-        printf("Email: %s\n", profile->email);
-        printf("Wallet Address: %s\n", profile->wallet_address);
+        printf("ID: %u\n", combined->profile.vendor_id);
+        printf("Kitchen Name: %s\n", combined->profile.kitchen_name);
+        printf("Email: %s\n", combined->profile.email);
+        printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
         vendor_count++;
         free(wallet);
         save_profiles_to_file();
-        return profile;
+        return combined;
 }
 
-/**
- * check_email_exists - Check if email is already registered
- * @email: Email to check
- * Return: 1 if exists, 0 if not
- */
-int check_email_exists(const char *email)
-{
-        int i;
+// /**
+//  * check_email_exists - Check if email is already registered
+//  * @email: Email to check
+//  * Return: 1 if exists, 0 if not
+//  */
+// int check_email_exists(const char *email)
+// {
+//         int i;
 
-        for (i = 0; i < student_count; i++)
-        {
-                if (strcmp(students[i].email, email) == 0)
-                        return 1;
-        }
+//         for (i = 0; i < student_count; i++)
+//         {
+//                 if (strcmp(students[i].email, email) == 0)
+//                         return 1;
+//         }
 
-        for (i = 0; i < staff_count; i++)
-        {
-                if (strcmp(staff[i].email, email) == 0)
-                        return 1;
-        }
+//         for (i = 0; i < staff_count; i++)
+//         {
+//                 if (strcmp(staff[i].email, email) == 0)
+//                         return 1;
+//         }
 
-        for (i = 0; i < vendor_count; i++)
-        {
-                if (strcmp(vendors[i].email, email) == 0)
-                        return 1;
-        }
+//         for (i = 0; i < vendor_count; i++)
+//         {
+//                 if (strcmp(vendors[i].email, email) == 0)
+//                         return 1;
+//         }
 
-        return 0;
-}
+//         return 0;
+// }
 
 /**
  * get_profile_by_email - Get profile by email address
