@@ -50,6 +50,9 @@ int main(void)
                 return 1;
         }
 
+        /* Create institutional wallets */
+        create_institutional_wallets();
+
         /* Load existing profiles */
         if (!load_profiles_from_file())
         {
@@ -136,13 +139,6 @@ int main(void)
                                 break;
                         }
 
-                        // if (current_wallet)
-                        // {
-                        //         printf("Logging out of current wallet...\n");
-                        //         free(current_wallet);
-                        // }
-
-                        // current_wallet = create_wallet(email);
                         if (current_wallet)
                         {
                                 printf("\nWallet created successfully!\n");
@@ -180,6 +176,8 @@ int main(void)
                                 break;
                         }
 
+                        current_wallet = load_wallet_by_public_key(current_wallet->address);
+
                         if (process_payment(chain, current_wallet))
                         {
                                 printf("Payment completed successfully!\n");
@@ -200,7 +198,9 @@ int main(void)
                                 printf("Please create or load a wallet first.\n");
                                 break;
                         }
+                        current_wallet = load_wallet_by_public_key(current_wallet->address);
                         printf("\n=== Wallet Balance ===\n");
+                        printf("Email: %s\n", current_wallet->email);
                         printf("Address: %s\n", current_wallet->address);
                         printf("Balance: %.2f %s\n", current_wallet->balance,
                                chain->token.symbol);
@@ -350,6 +350,45 @@ void clear_input_buffer(void)
 }
 
 /**
+ * verify_transaction - Verifies if a transaction is valid
+ * @wallet: Sender's wallet
+ * @to_address: Recipient's wallet address
+ * @amount: Amount to be transferred
+ * Return: 1 if valid, 0 if invalid
+ */
+int verify_transaction(const Wallet *wallet, const char *to_address, double amount)
+{
+        if (!wallet || !to_address || amount <= 0)
+        {
+                printf("Invalid transaction parameters.\n");
+                return 0;
+        }
+
+        // Check if the sender has enough balance
+        if (amount > wallet->balance)
+        {
+                printf("Insufficient balance.\n");
+                return 0;
+        }
+
+        // Ensure the recipient address is not the same as the sender's address
+        if (strcmp(wallet->address, to_address) == 0)
+        {
+                printf("Cannot send tokens to your own address.\n");
+                return 0;
+        }
+
+        // Load recipient's wallet using public key
+        Wallet *recipient = load_wallet_by_public_key(to_address);
+        if (!recipient)
+        {
+                printf("Recipient wallet not found.\n");
+                return 0;
+        }
+        return 1;
+}
+
+/**
  * process_payment - Handle payment transaction
  * @chain: Blockchain
  * @wallet: User's wallet
@@ -380,8 +419,6 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 trans_type = TUITION_FEE;
                 strcpy(to_address, SCHOOL_TUITION_ADDRESS);
                 recipient_name = "ALU Tuition Account";
-                printf("\nSelected: Tuition Fee Payment\n");
-                printf("Recipient: %s\n", recipient_name);
                 break;
 
         case 2: /* Cafeteria Payment */
@@ -408,7 +445,6 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 
                 strcpy(to_address, kitchen->wallet_address);
                 recipient_name = kitchen->kitchen_name;
-                printf("\nSelected: %s\n", recipient_name);
                 break;
         }
 
@@ -416,21 +452,16 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 trans_type = LIBRARY_FINE;
                 strcpy(to_address, SCHOOL_LIBRARY_ADDRESS);
                 recipient_name = "ALU Library";
-                printf("\nSelected: Library Fine Payment\n");
-                printf("Recipient: %s\n", recipient_name);
                 break;
 
         case 4: /* Health Insurance */
                 trans_type = HEALTH_INSURANCE;
                 strcpy(to_address, HEALTH_INSURANCE_ADDRESS);
                 recipient_name = "ALU Health Insurance";
-                printf("\nSelected: Health Insurance Payment\n");
-                printf("Recipient: %s\n", recipient_name);
                 break;
 
         case 5: /* Token Transfer */
                 trans_type = TOKEN_TRANSFER;
-                printf("\nSelected: Token Transfer\n");
                 get_string_input("Enter recipient's wallet address: ", to_address, HASH_LENGTH + 1);
                 recipient_name = "Custom Address";
                 break;
@@ -448,11 +479,9 @@ int process_payment(Blockchain *chain, Wallet *wallet)
         }
         clear_input_buffer();
 
-        if (amount <= 0 || amount > wallet->balance)
-        {
-                printf("Invalid amount or insufficient balance.\n");
+        /* Verify the transaction */
+        if (!verify_transaction(wallet, to_address, amount))
                 return 0;
-        }
 
         printf("\nPayment Summary:\n");
         printf("Type: %s\n",
@@ -464,21 +493,31 @@ int process_payment(Blockchain *chain, Wallet *wallet)
         printf("Amount: %.2f %s\n", amount, chain->token.symbol);
         printf("\nConfirm payment? (y/n): ");
 
-        {
-                char confirm;
-                scanf(" %c", &confirm);
-                clear_input_buffer();
+        char confirm;
+        scanf(" %c", &confirm);
+        clear_input_buffer();
 
-                if (confirm != 'y' && confirm != 'Y')
-                {
-                        printf("Payment cancelled.\n");
-                        return 0;
-                }
+        if (confirm != 'y' && confirm != 'Y')
+        {
+                printf("Payment cancelled.\n");
+                return 0;
         }
 
+        /* Create the transaction */
         if (create_transaction(chain, wallet, to_address, amount, trans_type))
         {
                 wallet->balance -= amount;
+
+                // Load recipient's wallet and update balance
+                Wallet *recipient_wallet = load_wallet_by_public_key(to_address);
+                if (recipient_wallet)
+                {
+                        recipient_wallet->balance += amount;
+                        update_wallet_record(wallet);           // Update sender
+                        update_wallet_record(recipient_wallet); // Update recipient
+                        free(recipient_wallet);
+                }
+
                 printf("\nPayment successful!\n");
                 printf("New balance: %.2f %s\n", wallet->balance, chain->token.symbol);
                 return 1;
@@ -488,6 +527,49 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 printf("\nPayment failed. Please try again.\n");
                 return 0;
         }
+}
+
+/**
+ * create_institutional_wallets - Create wallets for institutional addresses
+ * Return: 1 on success, 0 on failure
+ */
+int create_institutional_wallets(void)
+{
+        // Array of institutional wallet details
+        const struct
+        {
+                const char *address;
+                const char *email;
+                const char *private_key;
+                const char *name;
+                UserType user_type;
+        } institutions[] = {
+            {SCHOOL_TUITION_ADDRESS, "tuition@alueducation.com", "tuition_pivate_key", "ALU Tuition Account", INSTITUTION},
+            {SCHOOL_LIBRARY_ADDRESS, "library@alueducation.com", "library_pivate_key", "ALU Library", INSTITUTION},
+            {HEALTH_INSURANCE_ADDRESS, "insurance@alueducation.com", "insurance_pivate_key", "ALU Health Insurance", INSTITUTION}};
+
+        // Iterate over each institutional wallet and save it
+        for (size_t i = 0; i < sizeof(institutions) / sizeof(institutions[0]); i++)
+        {
+                StoredWallet wallet = {0};
+
+                strncpy(wallet.address, institutions[i].address, HASH_LENGTH - 1);
+                strncpy(wallet.email, institutions[i].email, MAX_EMAIL - 1);
+                strncpy(wallet.private_key, institutions[i].private_key, HASH_LENGTH - 1);
+                strncpy(wallet.name, institutions[i].name, MAX_NAME - 1);
+                wallet.balance = 0.0;
+                wallet.user_type = institutions[i].user_type;
+
+                // Save wallet to file
+                if (!save_wallet(wallet.email, wallet.private_key, wallet.address, wallet.name))
+                {
+                        printf("Failed to save wallet for: %s\n", institutions[i].name);
+                        return 0;
+                }
+        }
+
+        printf("Institutional wallets created successfully.\n");
+        return 1;
 }
 
 /* Continue with the rest of main.c... */

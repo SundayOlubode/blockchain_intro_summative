@@ -11,7 +11,7 @@
 /* Constants */
 #define MAX_EMAIL 100
 #define MAX_NAME 100
-#define HASH_LENGTH 64
+#define HASH_LENGTH 65
 #define MAX_TRANSACTIONS 100
 #define PROFILES_FILE "profiles.dat"
 #define WALLETS_FILE "wallets.dat"
@@ -38,7 +38,8 @@ typedef enum
         STUDENT,
         STAFF,
         VENDOR,
-        INTERN
+        INTERN,
+        INSTITUTION
 } UserType;
 
 typedef enum
@@ -133,6 +134,7 @@ typedef struct
         char private_key[HASH_LENGTH + 1];
         char email[MAX_EMAIL];
         double balance;
+        char name[MAX_NAME];
         UserType user_type;
 } Wallet;
 
@@ -144,6 +146,7 @@ typedef struct
         double balance;
         UserType user_type;
         char kitchen_name[MAX_NAME];
+        char name[MAX_NAME];
 } StoredWallet;
 
 typedef struct
@@ -179,6 +182,9 @@ int create_transaction(Blockchain *chain, Wallet *from,
 int validate_chain(Blockchain *chain);
 void cleanup_blockchain(Blockchain *chain);
 void print_transaction_history(Blockchain *chain, Wallet *wallet);
+Wallet *load_wallet_by_public_key(const char *public_key);
+int update_wallet_record(const Wallet *updated_wallet);
+int create_institutional_wallets(void);
 
 /* Profile management */
 StudentProfileWithWallet *create_student_profile(const char *name, const char *email,

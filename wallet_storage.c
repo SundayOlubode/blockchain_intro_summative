@@ -64,6 +64,83 @@ int save_wallet(const char *email, const char *private_key,
 }
 
 /**
+ * update_wallet_record - Update wallet record in the wallet file
+ * @updated_wallet: The wallet with updated information
+ * Return: 1 on success, 0 on failure
+ */
+int update_wallet_record(const Wallet *updated_wallet)
+{
+        if (!updated_wallet)
+                return 0;
+
+        FILE *file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+        {
+                printf("Error opening wallet file.\n");
+                return 0;
+        }
+
+        StoredWallet *wallets = NULL;
+        size_t wallet_count = 0;
+        StoredWallet temp_wallet;
+
+        // Load all wallets into memory
+        while (fread(&temp_wallet, sizeof(StoredWallet), 1, file))
+        {
+                StoredWallet *new_wallets = realloc(wallets, (wallet_count + 1) * sizeof(StoredWallet));
+                if (!new_wallets)
+                {
+                        free(wallets);
+                        fclose(file);
+                        printf("Memory allocation error.\n");
+                        return 0;
+                }
+                wallets = new_wallets;
+                wallets[wallet_count++] = temp_wallet;
+        }
+        fclose(file);
+
+        // Find the wallet by address and update it
+        int updated = 0;
+        for (size_t i = 0; i < wallet_count; i++)
+        {
+                if (strcmp(wallets[i].address, updated_wallet->address) == 0)
+                {
+                        // Update wallet details
+                        wallets[i].balance = updated_wallet->balance;
+                        strncpy(wallets[i].email, updated_wallet->email, MAX_EMAIL - 1);
+                        strncpy(wallets[i].private_key, updated_wallet->private_key, HASH_LENGTH - 1);
+                        // strncpy(wallets[i].kitchen_name, updated_wallet->kitchen_name, MAX_NAME - 1);
+                        updated = 1;
+                        break;
+                }
+        }
+
+        if (!updated)
+        {
+                printf("Wallet record not found.\n");
+                free(wallets);
+                return 0;
+        }
+
+        // Overwrite the wallet file with updated records
+        file = fopen(WALLETS_FILE, "wb");
+        if (!file)
+        {
+                printf("Error opening wallet file for writing.\n");
+                free(wallets);
+                return 0;
+        }
+
+        fwrite(wallets, sizeof(StoredWallet), wallet_count, file);
+        fclose(file);
+        free(wallets);
+
+        printf("Wallet record updated successfully.\n");
+        return 1;
+}
+
+/**
  * check_email_exists - Check if email is already registered (binary search)
  * @email: Email to check
  * Return: 1 if exists, 0 if not
@@ -81,7 +158,6 @@ int check_email_exists(const char *email)
 
         while (fread(&wallet, sizeof(StoredWallet), 1, file))
         {
-                printf("Checking: %s vs Stored: %s\n", email, wallet.email); // Debugging
                 if (strcmp(wallet.email, email) == 0)
                 {
                         fclose(file);
@@ -104,22 +180,90 @@ Wallet *load_wallet_by_key(const char *private_key)
         StoredWallet stored_wallet;
         Wallet *wallet = NULL;
 
+        if (!private_key || private_key[0] == '\0')
+        {
+                printf("Invalid private key\n");
+                return NULL;
+        }
+
+        file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+        {
+                printf("Failed to open wallets file\n");
+                return NULL;
+        }
+
+        printf("Searching for wallet with private key: %s\n", private_key);
+
+        // Search for the wallet by comparing private keys
+        while (fread(&stored_wallet, sizeof(StoredWallet), 1, file))
+        {
+
+                if (strcmp(stored_wallet.private_key, private_key) == 0)
+                {
+                        // Allocate memory for Wallet
+                        wallet = malloc(sizeof(Wallet));
+                        if (!wallet)
+                        {
+                                printf("Failed to allocate memory for wallet\n");
+                                fclose(file);
+                                return NULL;
+                        }
+
+                        // Copy all relevant fields from stored_wallet
+                        strncpy(wallet->email, stored_wallet.email, MAX_EMAIL - 1);
+                        wallet->email[MAX_EMAIL - 1] = '\0';
+
+                        strncpy(wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                        wallet->private_key[HASH_LENGTH - 1] = '\0';
+
+                        strncpy(wallet->address, stored_wallet.address, HASH_LENGTH - 1);
+                        wallet->address[HASH_LENGTH - 1] = '\0';
+
+                        wallet->balance = stored_wallet.balance;
+                        wallet->user_type = stored_wallet.user_type;
+
+                        printf("Wallet found and loaded successfully\n");
+                        break;
+                }
+        }
+
+        fclose(file);
+
+        if (!wallet)
+                printf("Wallet not found for the provided private key\n");
+
+        return wallet;
+}
+
+/**
+ * load_wallet_by_public_key - Load wallet using public key
+ * @public_key: Public key to search for
+ * Return: Loaded wallet or NULL if not found
+ */
+Wallet *load_wallet_by_public_key(const char *public_key)
+{
+        FILE *file;
+        StoredWallet stored_wallet;
+        Wallet *wallet = NULL;
+
         file = fopen(WALLETS_FILE, "rb");
         if (!file)
                 return NULL;
 
         while (fread(&stored_wallet, sizeof(StoredWallet), 1, file))
         {
-                if (strcmp(stored_wallet.private_key, private_key) == 0)
+                if (strcmp(stored_wallet.address, public_key) == 0) // Compare public key
                 {
                         wallet = malloc(sizeof(Wallet));
                         if (wallet)
                         {
                                 strncpy(wallet->email, stored_wallet.email, MAX_EMAIL - 1);
-                                strncpy(wallet->private_key, stored_wallet.private_key, HASH_LENGTH);
-                                strncpy(wallet->address, stored_wallet.address, HASH_LENGTH);
+                                strncpy(wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                                strncpy(wallet->address, stored_wallet.address, HASH_LENGTH - 1);
                                 wallet->balance = stored_wallet.balance;
                                 wallet->user_type = stored_wallet.user_type;
+                                // strncpy(wallet->kitchen_name, stored_wallet.kitchen_name, MAX_NAME - 1);
                         }
                         break;
                 }
