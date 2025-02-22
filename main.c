@@ -9,7 +9,6 @@ void display_cafeteria_menu(void);
 void get_string_input(const char *prompt, char *buffer, size_t size);
 void clear_input_buffer(void);
 int process_payment(Blockchain *chain, Wallet *wallet);
-void print_transaction_history(Blockchain *chain, Wallet *wallet);
 void configure_system(void);
 
 /**
@@ -214,7 +213,7 @@ int main(void)
                         }
 
                         printf("\n=== Transaction History ===\n");
-                        print_transaction_history(chain, current_wallet);
+                        print_transaction_history(current_wallet);
                         break;
 
                 case 6: /* View Blockchain Status */

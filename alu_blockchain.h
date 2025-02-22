@@ -16,6 +16,7 @@
 #define MAX_TRANSACTIONS 100
 #define PROFILES_FILE "profiles.dat"
 #define WALLETS_FILE "wallets.dat"
+#define TX_FILE "transactions.dat"
 #define NUM_KITCHENS 10
 
 /* Token definitions */
@@ -182,7 +183,7 @@ int create_transaction(Blockchain *chain, Wallet *from,
                        TransactionType type);
 int validate_chain(Blockchain *chain);
 void cleanup_blockchain(Blockchain *chain);
-void print_transaction_history(Blockchain *chain, Wallet *wallet);
+void print_transaction_history(Wallet *wallet);
 Wallet *load_wallet_by_public_key(const char *public_key);
 int update_wallet_record(const Wallet *updated_wallet);
 int create_institutional_wallets(void);

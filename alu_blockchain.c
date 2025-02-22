@@ -138,7 +138,7 @@ int verify_email_domain(const char *email)
 // }
 
 /**
- * create_transaction - Create new transaction
+ * create_transaction - Create new transaction and store it in TX_FILE
  * @chain: Blockchain
  * @from: Sender wallet
  * @to_address: Recipient address
@@ -146,21 +146,24 @@ int verify_email_domain(const char *email)
  * @type: Transaction type
  * Return: 1 on success, 0 on failure
  */
-int create_transaction(Blockchain *chain, Wallet *from,
-                       const char *to_address, double amount,
-                       TransactionType type)
+int create_transaction(Blockchain *chain, Wallet *from, const char *to_address, double amount, TransactionType type)
 {
         Transaction transaction;
+        Wallet *recipient;
         char temp[256];
-        Block *latest;
+        FILE *file;
 
         if (!chain || !from || !to_address || amount <= 0 || from->balance < amount)
                 return 0;
 
-        latest = chain->latest;
-        if (!latest || latest->transaction_count >= MAX_TRANSACTIONS)
+        recipient = load_wallet_by_public_key(to_address);
+        if (!recipient)
+        {
+                printf("Recipient wallet not found\n");
                 return 0;
+        }
 
+        /* Prepare transaction record */
         strncpy(transaction.from_address, from->address, HASH_LENGTH);
         strncpy(transaction.to_address, to_address, HASH_LENGTH);
         transaction.amount = amount;
@@ -168,12 +171,24 @@ int create_transaction(Blockchain *chain, Wallet *from,
         time(&transaction.timestamp);
 
         /* Generate transaction signature */
-        sprintf(temp, "%s%s%.2f%ld",
-                transaction.from_address, transaction.to_address,
-                amount, transaction.timestamp);
+        sprintf(temp, "%s%s%.2f%ld", transaction.from_address, transaction.to_address, amount, transaction.timestamp);
         generate_hash(temp, transaction.signature);
 
-        latest->transactions[latest->transaction_count++] = transaction;
+        /* Append transaction to TX_FILE */
+        file = fopen(TX_FILE, "ab");
+        if (!file)
+        {
+                printf("Error opening transactions file.\n");
+                return 0;
+        }
+        fwrite(&transaction, sizeof(Transaction), 1, file);
+        fclose(file);
+
+        /* Save updated wallets */
+        update_wallet_record(from);
+        update_wallet_record(recipient);
+
+        printf("Transaction successfully recorded.\n");
         return 1;
 }
 
@@ -222,60 +237,47 @@ int validate_chain(Blockchain *chain)
 
 /**
  * print_transaction_history - Print transaction history for a wallet
- * @chain: Blockchain
  * @wallet: Wallet to check transactions for
  */
-void print_transaction_history(Blockchain *chain, Wallet *wallet)
+void print_transaction_history(Wallet *wallet)
 {
-        Block *current;
-        Transaction *trans;
-        int i;
+        FILE *file;
+        Transaction transaction;
         int found = 0;
 
-        if (!chain || !wallet)
+        if (!wallet)
                 return;
 
-        current = chain->genesis;
-        while (current != NULL)
+        file = fopen(TX_FILE, "rb");
+        if (!file)
         {
-                for (i = 0; i < current->transaction_count; i++)
-                {
-                        trans = &current->transactions[i];
-                        if (strcmp(trans->from_address, wallet->address) == 0 ||
-                            strcmp(trans->to_address, wallet->address) == 0)
-                        {
-                                found = 1;
-                                printf("\nBlock #%d\n", current->index);
-                                printf("Type: ");
-                                switch (trans->type)
-                                {
-                                case TUITION_FEE:
-                                        printf("Tuition Fee\n");
-                                        break;
-                                case CAFETERIA_PAYMENT:
-                                        printf("Cafeteria Payment\n");
-                                        break;
-                                case LIBRARY_FINE:
-                                        printf("Library Fine\n");
-                                        break;
-                                case HEALTH_INSURANCE:
-                                        printf("Health Insurance\n");
-                                        break;
-                                case TOKEN_TRANSFER:
-                                        printf("Token Transfer\n");
-                                        break;
-                                }
-                                printf("Amount: %.2f %s\n", trans->amount, TOKEN_SYMBOL);
-                                printf("From: %.16s...\n", trans->from_address);
-                                printf("To: %.16s...\n", trans->to_address);
-                                printf("Time: %s", ctime(&trans->timestamp));
-                        }
-                }
-                current = current->next;
+                printf("No transaction history available.\n");
+                return;
         }
 
+        printf("\nTransaction History for Wallet: %.16s...\n", wallet->address);
+
+        while (fread(&transaction, sizeof(Transaction), 1, file))
+        {
+                if (strcmp(transaction.from_address, wallet->address) == 0 || strcmp(transaction.to_address, wallet->address) == 0)
+                {
+                        found = 1;
+                        printf("\nTransaction Type: %s\n",
+                               transaction.type == TUITION_FEE ? "Tuition Fee" : transaction.type == CAFETERIA_PAYMENT ? "Cafeteria Payment"
+                                                                             : transaction.type == LIBRARY_FINE        ? "Library Fine"
+                                                                             : transaction.type == HEALTH_INSURANCE    ? "Health Insurance"
+                                                                                                                       : "Token Transfer");
+                        printf("Amount: %.2f %s\n", transaction.amount, TOKEN_SYMBOL);
+                        printf("From: %.16s...\n", transaction.from_address);
+                        printf("To: %.16s...\n", transaction.to_address);
+                        printf("Time: %s", ctime(&transaction.timestamp));
+                        printf("Status: %s\n", strcmp(transaction.from_address, wallet->address) == 0 ? "Sent" : "Received");
+                }
+        }
+        fclose(file);
+
         if (!found)
-                printf("No transactions found.\n");
+                printf("No transactions found for this wallet.\n");
 }
 
 /**
