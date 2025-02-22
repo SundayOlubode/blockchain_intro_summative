@@ -530,45 +530,44 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 }
 
 /**
- * create_institutional_wallets - Create wallets for institutional addresses
+ * create_institutional_wallets - Create wallets for institutions
  * Return: 1 on success, 0 on failure
  */
 int create_institutional_wallets(void)
 {
-        // Array of institutional wallet details
+        printf("\nCreating institutional wallets...\n");
+        sleep(1);
         const struct
         {
                 const char *address;
                 const char *email;
                 const char *private_key;
-                const char *name;
-                UserType user_type;
         } institutions[] = {
-            {SCHOOL_TUITION_ADDRESS, "tuition@alueducation.com", "tuition_pivate_key", "ALU Tuition Account", INSTITUTION},
-            {SCHOOL_LIBRARY_ADDRESS, "library@alueducation.com", "library_pivate_key", "ALU Library", INSTITUTION},
-            {HEALTH_INSURANCE_ADDRESS, "insurance@alueducation.com", "insurance_pivate_key", "ALU Health Insurance", INSTITUTION}};
+            {SCHOOL_TUITION_ADDRESS, "tuition@alu.edu", "tuition_key_placeholder"},
+            {SCHOOL_LIBRARY_ADDRESS, "library@alu.edu", "library_key_placeholder"},
+            {HEALTH_INSURANCE_ADDRESS, "insurance@alu.edu", "insurance_key_placeholder"}};
 
-        // Iterate over each institutional wallet and save it
         for (size_t i = 0; i < sizeof(institutions) / sizeof(institutions[0]); i++)
         {
-                StoredWallet wallet = {0};
-
-                strncpy(wallet.address, institutions[i].address, HASH_LENGTH - 1);
-                strncpy(wallet.email, institutions[i].email, MAX_EMAIL - 1);
-                strncpy(wallet.private_key, institutions[i].private_key, HASH_LENGTH - 1);
-                strncpy(wallet.name, institutions[i].name, MAX_NAME - 1);
-                wallet.balance = 0.0;
-                wallet.user_type = institutions[i].user_type;
-
-                // Save wallet to file
-                if (!save_wallet(wallet.email, wallet.private_key, wallet.address, wallet.name))
+                // Check if wallet already exists
+                Wallet *existing_wallet = load_wallet_by_public_key(institutions[i].address);
+                if (existing_wallet)
                 {
-                        printf("Failed to save wallet for: %s\n", institutions[i].name);
+                        printf("Wallet for %s already exists.\n", institutions[i].email);
+                        free(existing_wallet);
+                        continue;
+                }
+
+                // Save wallet
+                if (!save_wallet(institutions[i].email, institutions[i].private_key, institutions[i].address, NULL))
+                {
+                        printf("Failed to save wallet for %s\n", institutions[i].email);
                         return 0;
                 }
+
+                printf("Created wallet for %s\n", institutions[i].email);
         }
 
-        printf("Institutional wallets created successfully.\n");
         return 1;
 }
 
