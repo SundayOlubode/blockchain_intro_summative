@@ -1,5 +1,6 @@
 /* alu_blockchain.c */
 #include "alu_blockchain.h"
+#include "config.h"
 
 /**
  * generate_hash - Generate SHA-256 hash
@@ -28,54 +29,121 @@ void generate_hash(const char *input, char *output)
         EVP_MD_CTX_free(mdctx);
 }
 
+// /**
+//  * initialize_blockchain - Initialize new blockchain
+//  * Return: Pointer to new blockchain or NULL on failure
+//  */
+// Blockchain *initialize_blockchain(void)
+// {
+//         Blockchain *chain;
+//         Block *genesis;
+//         time_t now;
+//         char temp[512];
+
+//         chain = malloc(sizeof(Blockchain));
+//         if (!chain)
+//                 return NULL;
+
+//         /* Initialize token */
+//         strncpy(chain->token.token_name, TOKEN_NAME, 49);
+//         strncpy(chain->token.symbol, TOKEN_SYMBOL, 4);
+//         chain->token.total_supply = INITIAL_SUPPLY;
+//         chain->token.circulating_supply = CIRCULATING_SUPPLY;
+
+//         /* Create genesis block */
+//         genesis = malloc(sizeof(Block));
+//         if (!genesis)
+//         {
+//                 free(chain);
+//                 return NULL;
+//         }
+
+//         genesis->index = 0;
+//         strcpy(genesis->previous_hash,
+//                "0000000000000000000000000000000000000000000000000000000000000000");
+//         time(&now);
+//         strftime(genesis->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
+//         genesis->nonce = 0;
+//         genesis->transaction_count = 0;
+//         genesis->next = NULL;
+
+//         /* Calculate genesis block hash */
+//         sprintf(temp, "%u%s%s%u",
+//                 genesis->index, genesis->previous_hash,
+//                 genesis->timestamp, genesis->nonce);
+//         generate_hash(temp, genesis->current_hash);
+
+//         chain->genesis = genesis;
+//         chain->latest = genesis;
+//         chain->block_count = 1;
+
+//         return chain;
+// }
+
 /**
- * initialize_blockchain - Initialize new blockchain
- * Return: Pointer to new blockchain or NULL on failure
+ * initialize_blockchain - Initialize blockchain system
+ * Return: Pointer to initialized blockchain
  */
 Blockchain *initialize_blockchain(void)
 {
-        Blockchain *chain;
-        Block *genesis;
-        time_t now;
-        char temp[512];
+        Blockchain *chain = NULL;
 
-        chain = malloc(sizeof(Blockchain));
-        if (!chain)
-                return NULL;
-
-        /* Initialize token */
-        strncpy(chain->token.token_name, TOKEN_NAME, 49);
-        strncpy(chain->token.symbol, TOKEN_SYMBOL, 4);
-        chain->token.total_supply = INITIAL_SUPPLY;
-        chain->token.circulating_supply = 0;
-
-        /* Create genesis block */
-        genesis = malloc(sizeof(Block));
-        if (!genesis)
+        /* Load configuration */
+        Config *config = load_config();
+        if (!config)
         {
-                free(chain);
+                printf("Error: Failed to load config. Exiting...\n");
                 return NULL;
         }
 
-        genesis->index = 0;
-        strcpy(genesis->previous_hash,
-               "0000000000000000000000000000000000000000000000000000000000000000");
-        time(&now);
-        strftime(genesis->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
-        genesis->nonce = 0;
-        genesis->transaction_count = 0;
-        genesis->next = NULL;
+        /* Try to restore from backup */
+        if (restore_blockchain(&chain))
+        {
+                printf("Blockchain restored from backup.\n");
+        }
+        else
+        {
+                /* No backup found, create new blockchain */
+                printf("No backup found. Creating new blockchain...\n");
 
-        /* Calculate genesis block hash */
-        sprintf(temp, "%u%s%s%u",
-                genesis->index, genesis->previous_hash,
-                genesis->timestamp, genesis->nonce);
-        generate_hash(temp, genesis->current_hash);
+                chain = malloc(sizeof(Blockchain));
+                if (!chain)
+                {
+                        printf("Error: Memory allocation failed.\n");
+                        free(config);
+                        return NULL;
+                }
 
-        chain->genesis = genesis;
-        chain->latest = genesis;
-        chain->block_count = 1;
+                /* Initialize genesis block */
+                chain->genesis = malloc(sizeof(Block));
+                if (!chain->genesis)
+                {
+                        printf("Error: Memory allocation failed.\n");
+                        free(chain);
+                        free(config);
+                        return NULL;
+                }
 
+                /* Set genesis block properties */
+                chain->block_count = 1;
+                chain->latest = chain->genesis;
+                chain->genesis->index = 0;
+                chain->genesis->previous_hash[0] = '0000000000000000000000000000000000000000000000000000000000000000';
+                chain->genesis->timestamp = time(NULL);
+                chain->genesis->reward = config->block_reward;
+                chain->genesis->transactions = 0;
+                chain->genesis->next = NULL;
+
+                /* Set initial token supply */
+                chain->token.total_supply = config->initial_supply;
+                chain->token.circulating_supply = CIRCULATING_SUPPLY;
+                chain->token.token_name = TOKEN_NAME;
+
+                /* Save blockchain as a new backup */
+                backup_blockchain(chain);
+        }
+
+        free(config);
         return chain;
 }
 
@@ -192,7 +260,6 @@ int validate_chain(Blockchain *chain)
                 /* Verify transactions in block */
                 for (i = 0; i < (unsigned int)current->transaction_count; i++)
                 {
-                        /* Add transaction verification if needed */
                         (void)i; /* Suppress unused variable warning */
                 }
 

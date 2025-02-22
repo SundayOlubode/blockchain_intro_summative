@@ -22,7 +22,7 @@ void create_default_config(void)
 
         fprintf(file, "# ALU Blockchain Configuration\n");
         fprintf(file, "initial_supply=1000000\n");
-        fprintf(file, "block_reward=50\n");
+        fprintf(file, "block_reward=2\n");
         fprintf(file, "max_transactions=100\n");
         fprintf(file, "backup_directory=./backups\n");
         fprintf(file, "auto_backup=1\n");
@@ -47,8 +47,8 @@ Config *load_config(void)
                 return NULL;
 
         /* Set default values */
-        config->initial_supply = 1000000;
-        config->block_reward = 50;
+        config->initial_supply = INITIAL_SUPPLY;
+        config->block_reward = BLOCK_REWARD;
         config->max_transactions = 100;
         strcpy(config->backup_directory, "./backups");
         config->auto_backup = 1;

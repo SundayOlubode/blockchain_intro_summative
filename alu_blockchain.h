@@ -23,6 +23,8 @@
 #define TOKEN_NAME "Leaders Token"
 #define TOKEN_SYMBOL "LT"
 #define INITIAL_SUPPLY 1000000
+#define CIRCULATING_SUPPLY 1000000
+#define BLOCK_REWARD 2
 
 /* Domain definitions */
 #define STUDENT_DOMAIN "@alustudent.com"
@@ -113,6 +115,7 @@ typedef struct Block
         int transaction_count;
         char current_hash[HASH_LENGTH + 1];
         struct Block *next;
+        unsigned int reward;
 } Block;
 
 typedef struct
