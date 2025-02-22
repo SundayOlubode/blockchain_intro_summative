@@ -103,40 +103,6 @@ int verify_email_domain(const char *email)
         return 0;
 }
 
-// /**
-//  * create_wallet - Create new wallet
-//  * @email: User email
-//  * Return: New wallet or NULL on failure
-//  */
-// Wallet *create_wallet(const char *email)
-// {
-//         Wallet *wallet;
-//         char temp[MAX_EMAIL + 20];
-//         time_t now;
-
-//         if (!verify_email_domain(email))
-//                 return NULL;
-
-//         wallet = malloc(sizeof(Wallet));
-//         if (!wallet)
-//                 return NULL;
-
-//         strncpy(wallet->email, email, MAX_EMAIL - 1);
-//         wallet->email[MAX_EMAIL - 1] = '\0';
-//         wallet->balance = 100.0; /* Initial balance for testing */
-
-//         /* Generate wallet address */
-//         time(&now);
-//         sprintf(temp, "%s%ld", email, now);
-//         generate_hash(temp, wallet->address);
-
-//         /* Generate private key */
-//         sprintf(temp, "%s%ld%s", email, now, wallet->address);
-//         generate_hash(temp, wallet->private_key);
-
-//         return wallet;
-// }
-
 /**
  * create_transaction - Create new transaction and store it in TX_FILE
  * @chain: Blockchain
@@ -301,4 +267,155 @@ void cleanup_blockchain(Blockchain *chain)
         }
 
         free(chain);
+}
+
+/**
+ * add_transaction - Adds a transaction to the latest block
+ * @chain: Blockchain
+ * @transaction: Transaction to add
+ * Return: 1 on success, 0 on failure
+ */
+int add_transaction(Blockchain *chain, Transaction *transaction)
+{
+        Block *latest;
+
+        if (!chain || !transaction)
+                return 0;
+
+        latest = chain->latest;
+        if (latest->transaction_count >= MAX_TRANSACTIONS)
+                return 0;
+
+        latest->transactions[latest->transaction_count++] = *transaction;
+        return 1;
+}
+
+/**
+ * create_block - Creates a new block and adds it to the blockchain
+ * @chain: Blockchain
+ * Return: Pointer to the new block, NULL on failure
+ */
+Block *create_block(Blockchain *chain)
+{
+        Block *new_block, *latest;
+        time_t now;
+        char temp[512];
+
+        if (!chain || !chain->latest)
+                return NULL;
+
+        new_block = malloc(sizeof(Block));
+        if (!new_block)
+                return NULL;
+
+        latest = chain->latest;
+        new_block->index = latest->index + 1;
+        strncpy(new_block->previous_hash, latest->current_hash, HASH_LENGTH);
+        time(&now);
+        strftime(new_block->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
+        new_block->nonce = 0;
+        new_block->transaction_count = 0;
+        new_block->next = NULL;
+
+        /* Generate block hash */
+        sprintf(temp, "%u%s%s%u", new_block->index, new_block->previous_hash,
+                new_block->timestamp, new_block->nonce);
+        generate_hash(temp, new_block->current_hash);
+
+        /* Link new block to blockchain */
+        latest->next = new_block;
+        chain->latest = new_block;
+        chain->block_count++;
+
+        return new_block;
+}
+
+/**
+ * validate_block - Validates a newly created block
+ * @chain: Blockchain
+ * @block: Block to validate
+ * Return: 1 if valid, 0 if invalid
+ */
+int validate_block(Blockchain *chain, Block *block)
+{
+        char temp[512];
+        char computed_hash[HASH_LENGTH + 1];
+
+        if (!chain || !block)
+                return 0;
+
+        /* Check previous hash */
+        if (strcmp(block->previous_hash, chain->latest->current_hash) != 0)
+                return 0;
+
+        /* Recompute hash */
+        sprintf(temp, "%u%s%s%u", block->index, block->previous_hash,
+                block->timestamp, block->nonce);
+        generate_hash(temp, computed_hash);
+
+        if (strcmp(computed_hash, block->current_hash) != 0)
+                return 0;
+
+        return 1;
+}
+
+/**
+ * select_validator - Selects a validator based on PoS
+ * @chain: Blockchain
+ * Return: Pointer to the selected validator's wallet
+ */
+Wallet *select_validator()
+{
+        Wallet *selected_wallet = NULL;
+        double total_balance = 0, random_value, cumulative_weight = 0;
+        FILE *file;
+        StoredWallet stored_wallet;
+        // Wallet *current_wallet = NULL;
+
+        // Open the wallets file
+        file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+                return NULL;
+
+        // Calculate total balance of all wallets
+        while (fread(&stored_wallet, sizeof(StoredWallet), 1, file))
+        {
+                total_balance += stored_wallet.balance;
+        }
+        fclose(file);
+
+        if (total_balance == 0)
+                return NULL;
+
+        // Generate a random value within the total balance
+        srand(time(NULL));
+        random_value = ((double)rand() / RAND_MAX) * total_balance;
+
+        // Reopen the file to traverse it again and select wallet
+        file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+                return NULL;
+
+        // Select wallet based on probability weight
+        while (fread(&stored_wallet, sizeof(StoredWallet), 1, file))
+        {
+                cumulative_weight += stored_wallet.balance;
+                if (random_value <= cumulative_weight)
+                {
+                        selected_wallet = malloc(sizeof(Wallet));
+                        if (selected_wallet)
+                        {
+                                strncpy(selected_wallet->email, stored_wallet.email, MAX_EMAIL - 1);
+                                strncpy(selected_wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                                strncpy(selected_wallet->address, stored_wallet.address, HASH_LENGTH - 1);
+                                selected_wallet->balance = stored_wallet.balance;
+                                selected_wallet->user_type = stored_wallet.user_type;
+                                // selected_wallet->next = NULL;
+                        }
+                        break;
+                }
+        }
+
+        fclose(file);
+        return selected_wallet;
 }

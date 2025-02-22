@@ -187,6 +187,10 @@ void print_transaction_history(Wallet *wallet);
 Wallet *load_wallet_by_public_key(const char *public_key);
 int update_wallet_record(const Wallet *updated_wallet);
 int create_institutional_wallets(void);
+int add_transaction(Blockchain *chain, Transaction *transaction);
+Block *create_block(Blockchain *chain);
+int validate_block(Blockchain *chain, Block *block);
+Wallet *select_validator();
 
 /* Profile management */
 StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
