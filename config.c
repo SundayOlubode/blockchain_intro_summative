@@ -48,6 +48,7 @@ Config *load_config(void)
 
         /* Set default values */
         config->initial_supply = INITIAL_SUPPLY;
+        config->circulating_supply = CIRCULATING_SUPPLY;
         config->block_reward = BLOCK_REWARD;
         config->max_transactions = 100;
         strcpy(config->backup_directory, "./backups");

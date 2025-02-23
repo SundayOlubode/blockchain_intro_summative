@@ -17,6 +17,7 @@
 #define PROFILES_FILE "profiles.dat"
 #define WALLETS_FILE "wallets.dat"
 #define TX_FILE "transactions.dat"
+#define TX_POOL "txpool.dat"
 #define NUM_KITCHENS 10
 
 /* Token definitions */
@@ -30,6 +31,16 @@
 #define STUDENT_DOMAIN "@alustudent.com"
 #define STAFF_DOMAIN "@alueducation.com"
 #define VENDOR_DOMAIN "@aluvendor.com"
+
+/* Vendor*/
+#define Pius_Cuisine "Pius Cuisine"
+#define Joshua_Kitchen "Joshua's Kitchen"
+#define Pascal_Kitchen "Pascal's Kitchen"
+
+/* Vendor Address */
+#define Pius_Cuisine_ADDRESS "0x000pius000000cuisine000000"
+#define Joshua_Kitchen_ADDRESS "0x000joshua000000kitchen000000"
+#define Pascal_Kitchen_ADDRESS "0x000pascal000000kitchen000000"
 
 /* Institutional addresses */
 #define SCHOOL_TUITION_ADDRESS "0000000000000000000000000000000000000000000000000000000000000001"
@@ -181,9 +192,9 @@ Blockchain *initialize_blockchain(void);
 int verify_email_domain(const char *email);
 Wallet *create_wallet(const char *email, const char *kitchen_name);
 Wallet *load_wallet_by_key(const char *private_key);
-int create_transaction(Blockchain *chain, Wallet *from,
-                       const char *to_address, double amount,
-                       TransactionType type);
+int initiate_transaction(Blockchain *chain, Wallet *from,
+                         const char *to_address, double amount,
+                         TransactionType type);
 int validate_chain(Blockchain *chain);
 void cleanup_blockchain(Blockchain *chain);
 void print_transaction_history(Wallet *wallet);
@@ -194,6 +205,12 @@ int add_transaction(Blockchain *chain, Transaction *transaction);
 Block *create_block(Blockchain *chain);
 int validate_block(Blockchain *chain, Block *block);
 Wallet *select_validator();
+void print_blockchain(const Blockchain *chain);
+Transaction *extract_transactions();
+int decrement_wallet_balance(const char *address, double amount);
+int increment_wallet_balance(const char *address, double amount);
+Wallet *reload_wallet(Wallet *current_wallet);
+int create_vendor_wallets(void);
 
 /* Profile management */
 StudentProfileWithWallet *create_student_profile(const char *name, const char *email,

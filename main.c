@@ -42,6 +42,7 @@ int main(void)
 
         /* Initialize blockchain */
         chain = initialize_blockchain();
+        sleep(1.5);
         if (!chain)
         {
                 printf("Failed to initialize blockchain\n");
@@ -51,6 +52,9 @@ int main(void)
 
         /* Create institutional wallets */
         create_institutional_wallets();
+
+        /* Create Vendor wallets */
+        create_vendor_wallets();
 
         /* Load existing profiles */
         if (!load_profiles_from_file())
@@ -77,6 +81,13 @@ int main(void)
                 {
                 case 1: /* Create New Wallet */
                 {
+                        if (current_wallet)
+                        {
+                                printf("Your wallet has already been loaded.\n");
+                                printf("Please continue with the current wallet or log out first.\n");
+                                break;
+                        }
+
                         char name[MAX_NAME];
                         char program[50];
                         char department[50];
@@ -88,7 +99,7 @@ int main(void)
                         StaffProfileWithWallet *staffDetail = NULL;
 
                         printf("\n=== Create New Wallet ===\n");
-                        get_string_input("Enter your name: ", name, MAX_NAME);
+                        // get_string_input("Enter your name: ", name, MAX_NAME);
                         get_string_input("Enter your ALU email: ", email, MAX_EMAIL);
 
                         if (!verify_email_domain(email))
@@ -107,18 +118,19 @@ int main(void)
                         /* Create appropriate profile based on email domain */
                         if (strstr(email, STUDENT_DOMAIN))
                         {
-                                printf("Enter year of study (1-4): ");
-                                scanf("%d", &year);
-                                clear_input_buffer();
-                                get_string_input("Enter program: ", program, 50);
+                                // printf("Enter year of study (1-4): ");
+                                // scanf("%d", &year);
+                                // clear_input_buffer();
+                                // get_string_input("Enter program: ", program, 50);
+                                year = 3;
                                 studentDetail = create_student_profile(name, email, year, program);
                                 profile = studentDetail ? &studentDetail->profile : NULL;
                                 current_wallet = studentDetail ? &studentDetail->wallet : NULL;
                         }
                         else if (strstr(email, STAFF_DOMAIN))
                         {
-                                get_string_input("Enter department: ", department, 50);
-                                get_string_input("Enter role: ", role, 30);
+                                // get_string_input("Enter department: ", department, 50);
+                                // get_string_input("Enter role: ", role, 30);
                                 staffDetail = create_staff_profile(name, email, department, role);
                                 profile = staffDetail ? &staffDetail->profile : NULL;
                                 current_wallet = staffDetail ? &staffDetail->wallet : NULL;
@@ -162,20 +174,21 @@ int main(void)
                         }
 
                         current_wallet = load_wallet_by_key(private_key);
+                        sleep(1);
                         if (current_wallet)
                                 printf("Wallet loaded successfully!\n");
                         else
                                 printf("Failed to load wallet. Check your private key.\n");
                         break;
 
-                case 3: /* Make Payment */
+                case 3: /* Initiate Transaction */
                         if (!current_wallet)
                         {
                                 printf("Please create or load a wallet first.\n");
                                 break;
                         }
 
-                        current_wallet = load_wallet_by_public_key(current_wallet->address);
+                        current_wallet = reload_wallet(current_wallet);
 
                         if (process_payment(chain, current_wallet))
                         {
@@ -197,7 +210,9 @@ int main(void)
                                 printf("Please create or load a wallet first.\n");
                                 break;
                         }
-                        current_wallet = load_wallet_by_public_key(current_wallet->address);
+
+                        current_wallet = reload_wallet(current_wallet);
+
                         printf("\n=== Wallet Balance ===\n");
                         printf("Email: %s\n", current_wallet->email);
                         printf("Address: %s\n", current_wallet->address);
@@ -216,7 +231,11 @@ int main(void)
                         print_transaction_history(current_wallet);
                         break;
 
-                case 6: /* View Blockchain Status */
+                case 6: /* View Blocks */
+                        print_blockchain(chain);
+                        break;
+
+                case 7: /* View Blockchain Status */
                         printf("\n=== Blockchain Status ===\n");
                         printf("Total Blocks: %d\n", chain->block_count);
                         printf("Token Name: %s (%s)\n", chain->token.token_name,
@@ -230,7 +249,7 @@ int main(void)
                                 printf("Blockchain Integrity: COMPROMISED!\n");
                         break;
 
-                case 7: /* Backup Blockchain */
+                case 8: /* Backup Blockchain */
                         printf("\n=== Backup Blockchain ===\n");
                         if (backup_blockchain(chain))
                                 printf("Blockchain backed up successfully!\n");
@@ -238,7 +257,7 @@ int main(void)
                                 printf("Failed to backup blockchain.\n");
                         break;
 
-                case 8: /* Restore Blockchain */
+                case 9: /* Restore Blockchain */
                         printf("\n=== Restore Blockchain ===\n");
                         printf("Warning: This will replace the current blockchain.\n");
                         printf("Are you sure? (y/n): ");
@@ -256,11 +275,10 @@ int main(void)
                         }
                         break;
 
-                case 9: /* Configure System */
+                case 10: /* Configure System */
                         // configure_system();
                         break;
-
-                case 10: /* Exit */
+                case 11: /* Exit */
                         printf("\nThank you for using ALU Payment System!\n");
                         if (current_wallet)
                                 free(current_wallet);
@@ -284,15 +302,16 @@ void display_menu(void)
         printf("\n=== ALU Payment System ===\n");
         printf("1. Create New Wallet\n");
         printf("2. Load Existing Wallet\n");
-        printf("3. Make Payment\n");
+        printf("3. Initiate Transaction\n");
         printf("4. View Balance\n");
         printf("5. View Transaction History\n");
-        printf("6. View Blockchain Status\n");
-        printf("7. Backup Blockchain\n");
-        printf("8. Restore Blockchain\n");
-        printf("9. Configure System\n");
-        printf("10. Exit\n");
-        printf("\nEnter your choice (1-10): ");
+        printf("6. View Blockchain\n");
+        printf("7. View Blockchain Status\n");
+        printf("8. Backup Blockchain\n");
+        printf("9. Restore Blockchain\n");
+        printf("10. Configure System\n");
+        printf("11. Exit\n");
+        printf("\nEnter your choice (1-11): ");
 }
 
 /**
@@ -316,7 +335,7 @@ void display_cafeteria_menu(void)
 {
         printf("\n=== Select Kitchen ===\n");
         printf("1. Pascal's Kitchen\n");
-        printf("2. Pius' Kitchen\n");
+        printf("2. Pius' Cuisine\n");
         printf("3. Joshua's Kitchen\n");
         printf("\nSelect kitchen (1-3): ");
 }
@@ -384,6 +403,7 @@ int verify_transaction(const Wallet *wallet, const char *to_address, double amou
                 printf("Recipient wallet not found.\n");
                 return 0;
         }
+        free(recipient);
         return 1;
 }
 
@@ -503,7 +523,7 @@ int process_payment(Blockchain *chain, Wallet *wallet)
         }
 
         /* Create the transaction */
-        if (create_transaction(chain, wallet, to_address, amount, trans_type))
+        if (initiate_transaction(chain, wallet, to_address, amount, trans_type))
         {
                 wallet->balance -= amount;
 
@@ -512,8 +532,8 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 if (recipient_wallet)
                 {
                         recipient_wallet->balance += amount;
-                        update_wallet_record(wallet);           // Update sender
-                        update_wallet_record(recipient_wallet); // Update recipient
+                        update_wallet_record(wallet);
+                        update_wallet_record(recipient_wallet);
                         free(recipient_wallet);
                 }
 
@@ -552,7 +572,6 @@ int create_institutional_wallets(void)
                 Wallet *existing_wallet = load_wallet_by_public_key(institutions[i].address);
                 if (existing_wallet)
                 {
-                        printf("Wallet for %s already exists.\n", institutions[i].email);
                         free(existing_wallet);
                         continue;
                 }
@@ -563,11 +582,49 @@ int create_institutional_wallets(void)
                         printf("Failed to save wallet for %s\n", institutions[i].email);
                         return 0;
                 }
-
-                printf("Created wallet for %s\n", institutions[i].email);
         }
 
         return 1;
 }
 
-/* Continue with the rest of main.c... */
+/**
+ * create_vendor_wallets - Create wallets for kitchen vendors with predefined addresses
+ * Return: 1 on success, 0 on failure
+ */
+int create_vendor_wallets(void)
+{
+        printf("\nCreating vendor wallets...\n");
+        sleep(1);
+
+        const struct
+        {
+                const char *kitchen_name;
+                const char *email;
+                const char *public_key;
+                const char *private_key;
+        } vendors[] = {
+            {Pius_Cuisine, "pius@vendor.com", Pius_Cuisine_ADDRESS, "pius_key_placeholder"},
+            {Joshua_Kitchen, "joshua@vendor.com", Joshua_Kitchen_ADDRESS, "joshua_key_placeholder"},
+            {Pascal_Kitchen, "pascal@vendor.com", Pascal_Kitchen_ADDRESS, "pascal_key_placeholder"}};
+
+        for (size_t i = 0; i < sizeof(vendors) / sizeof(vendors[0]); i++)
+        {
+                // Check if wallet already exists
+                Wallet *existing_wallet = load_wallet_by_public_key(vendors[i].public_key);
+                if (existing_wallet)
+                {
+                        free(existing_wallet);
+                        continue;
+                }
+
+                if (!save_wallet(vendors[i].email, vendors[i].private_key, vendors[i].public_key, vendors[i].kitchen_name))
+                {
+                        printf("Failed to save wallet for %s\n", vendors[i].kitchen_name);
+                        return 0;
+                }
+
+                printf("Wallet created for %s\n", vendors[i].kitchen_name);
+        }
+
+        return 1;
+}

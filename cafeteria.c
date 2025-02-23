@@ -3,19 +3,19 @@
 /* Predefined kitchen vendors - static to limit scope to this file */
 static const VendorProfile KITCHENS[NUM_KITCHENS] = {
     {.vendor_id = 9001,
-     .kitchen_name = "Pascal's Kitchen",
+     .kitchen_name = Pascal_Kitchen,
      .email = "pascal@aluvendor.com",
-     .wallet_address = "0000000000000000000000000000000000000000000000000000000000000cafe",
+     .wallet_address = Pascal_Kitchen_ADDRESS,
      .balance = 0.0},
     {.vendor_id = 9002,
-     .kitchen_name = "Pius' Kitchen",
+     .kitchen_name = Pius_Cuisine,
      .email = "pius@aluvendor.com",
-     .wallet_address = "0000000000000000000000000000000000000000000000000000000000000pie1",
+     .wallet_address = Pius_Cuisine_ADDRESS,
      .balance = 0.0},
     {.vendor_id = 9003,
-     .kitchen_name = "Joshua's Kitchen",
+     .kitchen_name = Joshua_Kitchen,
      .email = "joshua@aluvendor.com",
-     .wallet_address = "0000000000000000000000000000000000000000000000000000000000000josh",
+     .wallet_address = Joshua_Kitchen_ADDRESS,
      .balance = 0.0}};
 
 /* Keep track of active kitchens */

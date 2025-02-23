@@ -2,6 +2,8 @@
 #include "alu_blockchain.h"
 #include "config.h"
 
+int tx_count = 0;
+
 /**
  * generate_hash - Generate SHA-256 hash
  * @input: Input string
@@ -87,6 +89,10 @@ void generate_hash(const char *input, char *output)
 Blockchain *initialize_blockchain(void)
 {
         Blockchain *chain = NULL;
+        time_t now;
+        int block_idx = 0;
+        int block_cnt = 0;
+        char temp[512];
 
         /* Load configuration */
         Config *config = load_config();
@@ -125,19 +131,34 @@ Blockchain *initialize_blockchain(void)
                 }
 
                 /* Set genesis block properties */
-                chain->block_count = 1;
+                chain->block_count = ++block_cnt;
                 chain->latest = chain->genesis;
-                chain->genesis->index = 0;
-                chain->genesis->previous_hash[0] = '0000000000000000000000000000000000000000000000000000000000000000';
-                chain->genesis->timestamp = time(NULL);
+                chain->genesis->index = block_idx++;
+                strcpy(chain->genesis->previous_hash,
+                       "0000000000000000000000000000000000000000000000000000000000000000");
+                time(&now);
+                strftime(chain->genesis->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
                 chain->genesis->reward = config->block_reward;
-                chain->genesis->transactions = 0;
+                chain->genesis->transaction_count = 1;
                 chain->genesis->next = NULL;
 
+                /* Set genesis as latest */
+                chain->latest = chain->genesis;
+
+                /* Generate block hash */
+                sprintf(temp, "%u%s%s%u", chain->genesis->index, chain->genesis->previous_hash,
+                        chain->genesis->timestamp, chain->genesis->nonce);
+                generate_hash(temp, chain->genesis->current_hash);
+
                 /* Set initial token supply */
+                printf("Total Supply: %u\n", config->initial_supply);
                 chain->token.total_supply = config->initial_supply;
                 chain->token.circulating_supply = CIRCULATING_SUPPLY;
-                chain->token.token_name = TOKEN_NAME;
+                strncpy(chain->token.token_name, TOKEN_NAME, 50);
+                strncpy(chain->token.symbol, TOKEN_SYMBOL, 4);
+
+                /**= Set tx_count to zero */
+                tx_count = 0;
 
                 /* Save blockchain as a new backup */
                 backup_blockchain(chain);
@@ -172,7 +193,7 @@ int verify_email_domain(const char *email)
 }
 
 /**
- * create_transaction - Create new transaction and store it in TX_FILE
+ * initiate_transaction - Create new transaction and store it in TX_FILE
  * @chain: Blockchain
  * @from: Sender wallet
  * @to_address: Recipient address
@@ -180,12 +201,13 @@ int verify_email_domain(const char *email)
  * @type: Transaction type
  * Return: 1 on success, 0 on failure
  */
-int create_transaction(Blockchain *chain, Wallet *from, const char *to_address, double amount, TransactionType type)
+int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address, double amount, TransactionType type)
 {
         Transaction transaction;
         Wallet *recipient;
         char temp[256];
         FILE *file;
+        FILE *tx_pool;
 
         if (!chain || !from || !to_address || amount <= 0 || from->balance < amount)
                 return 0;
@@ -215,14 +237,38 @@ int create_transaction(Blockchain *chain, Wallet *from, const char *to_address, 
                 printf("Error opening transactions file.\n");
                 return 0;
         }
+
+        /* Append transaction to TX_POOL */
+        tx_pool = fopen(TX_POOL, "ab");
+        if (!tx_pool)
+        {
+                printf("Error opening transactions pool file.\n");
+                return 0;
+        }
+
         fwrite(&transaction, sizeof(Transaction), 1, file);
         fclose(file);
+        fwrite(&transaction, sizeof(Transaction), 1, tx_pool);
+        fclose(tx_pool);
 
         /* Save updated wallets */
+        // decrement_wallet_balance(from->address, amount);
+        // increment_wallet_balance(to_address, amount);
         update_wallet_record(from);
         update_wallet_record(recipient);
 
-        printf("Transaction successfully recorded.\n");
+        printf("\nTransaction successfully recorded.\n");
+
+        /*Increment tx count */
+        tx_count++;
+
+        if (tx_count >= 3)
+        {
+                printf("\nTransaction pool full. Creating new block...\n");
+                sleep(2);
+                create_block(chain);
+        }
+
         return 1;
 }
 
@@ -288,7 +334,7 @@ void print_transaction_history(Wallet *wallet)
                 return;
         }
 
-        printf("\nTransaction History for Wallet: %.16s...\n", wallet->address);
+        printf("\nTransaction History for Wallet: %s...\n", wallet->address);
 
         while (fread(&transaction, sizeof(Transaction), 1, file))
         {
@@ -367,6 +413,7 @@ Block *create_block(Blockchain *chain)
         Block *new_block, *latest;
         time_t now;
         char temp[512];
+        Transaction *tx_pool;
 
         if (!chain || !chain->latest)
                 return NULL;
@@ -384,6 +431,20 @@ Block *create_block(Blockchain *chain)
         new_block->transaction_count = 0;
         new_block->next = NULL;
 
+        /* Extract transactions from TX_POOL */
+        tx_pool = extract_transactions();
+        if (tx_pool)
+        {
+                printf("Transactions extracted from pool.\n");
+                while (tx_count < MAX_TRANSACTIONS && strlen(tx_pool[tx_count].from_address) > 0)
+                {
+                        new_block->transactions[tx_count] = tx_pool[tx_count];
+                        new_block->transaction_count++;
+                        tx_count++;
+                }
+                free(tx_pool);
+        }
+
         /* Generate block hash */
         sprintf(temp, "%u%s%s%u", new_block->index, new_block->previous_hash,
                 new_block->timestamp, new_block->nonce);
@@ -393,6 +454,14 @@ Block *create_block(Blockchain *chain)
         latest->next = new_block;
         chain->latest = new_block;
         chain->block_count++;
+
+        /* Set tx_count to zero */
+        tx_count = 0;
+
+        printf("New block created: #%d\n", new_block->index + 1);
+
+        /* Save blockchain as a new backup */
+        backup_blockchain(chain);
 
         return new_block;
 }
@@ -485,4 +554,80 @@ Wallet *select_validator()
 
         fclose(file);
         return selected_wallet;
+}
+
+/**
+ * print_blockchain - Print all blocks in the blockchain
+ * @chain: Pointer to the blockchain
+ */
+void print_blockchain(const Blockchain *chain)
+{
+        Block *current;
+        int i;
+
+        if (!chain)
+        {
+                printf("Blockchain is NULL.\n");
+                return;
+        }
+
+        printf("\n========== ALU PRIVATE BLOCKCHAIN ==========\n");
+        printf("Total Blocks: %d\n", chain->block_count);
+        printf("Token Name: %s (%s)\n", chain->token.token_name, chain->token.symbol);
+        printf("Total Supply: %u\n", chain->token.total_supply);
+        printf("Circulating Supply: %u\n", chain->token.circulating_supply);
+        printf("=====================================\n\n");
+
+        current = chain->genesis;
+        for (i = 0; current; i++)
+        {
+                printf("----- Block #%d -----\n", current->index + 1);
+                printf("Timestamp: %s\n", current->timestamp);
+                printf("Previous Hash: %s\n", current->previous_hash);
+                printf("Transactions: %d\n", current->transaction_count);
+                printf("Reward: %u\n", current->reward);
+                printf("Hash: %s\n", current->current_hash);
+                printf("---------------------\n\n");
+
+                current = current->next;
+        }
+}
+
+/**
+ * extract_transactions - Extracts transactions from TX_POOL and returns an array
+ * Return: Pointer to an array of transactions (must be freed after use), NULL on failure
+ */
+Transaction *extract_transactions()
+{
+        FILE *file;
+        Transaction *transactions;
+        int count = 0;
+
+        /* Allocate memory for transactions */
+        transactions = malloc(MAX_TRANSACTIONS * sizeof(Transaction));
+        if (!transactions)
+                return NULL;
+
+        file = fopen(TX_POOL, "rb");
+        if (!file)
+        {
+                free(transactions);
+                return NULL;
+        }
+
+        /* Read transactions from the file */
+        while (fread(&transactions[count], sizeof(Transaction), 1, file) == 1)
+        {
+                count++;
+                if (count >= MAX_TRANSACTIONS)
+                        break; /* Prevent overflow */
+        }
+        fclose(file);
+
+        /* Clear TX_POOL file after extraction */
+        file = fopen(TX_POOL, "wb");
+        if (file)
+                fclose(file);
+
+        return transactions;
 }

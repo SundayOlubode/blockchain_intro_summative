@@ -59,6 +59,10 @@ int save_wallet(const char *email, const char *private_key,
         }
 
         fwrite(&wallet, sizeof(StoredWallet), 1, file);
+
+        printf("Wallet public key %s saved successfully.\n", wallet.address);
+        printf("Wallet private key %s saved successfully.\n", wallet.private_key);
+
         fclose(file);
         return 1;
 }
@@ -98,6 +102,7 @@ int update_wallet_record(const Wallet *updated_wallet)
                 wallets = new_wallets;
                 wallets[wallet_count++] = temp_wallet;
         }
+        printf("Wallet count: %zu\n", wallet_count);
         fclose(file);
 
         // Find the wallet by address and update it
@@ -106,10 +111,11 @@ int update_wallet_record(const Wallet *updated_wallet)
         {
                 if (strcmp(wallets[i].address, updated_wallet->address) == 0)
                 {
+                        printf("Wallet found. Email: %s\n", wallets[i].email);
                         // Update wallet details
                         wallets[i].balance = updated_wallet->balance;
-                        strncpy(wallets[i].email, updated_wallet->email, MAX_EMAIL - 1);
-                        strncpy(wallets[i].private_key, updated_wallet->private_key, HASH_LENGTH - 1);
+                        // strncpy(wallets[i].email, updated_wallet->email, MAX_EMAIL - 1);
+                        // strncpy(wallets[i].private_key, updated_wallet->private_key, HASH_LENGTH - 1);
                         // strncpy(wallets[i].kitchen_name, updated_wallet->kitchen_name, MAX_NAME - 1);
                         updated = 1;
                         break;
@@ -136,7 +142,159 @@ int update_wallet_record(const Wallet *updated_wallet)
         fclose(file);
         free(wallets);
 
-        printf("Wallet record updated successfully.\n");
+        return 1;
+}
+
+/**
+ * increment_wallet_balance - Increase the balance of a wallet
+ * @address: The wallet address
+ * @amount: The amount to add
+ * Return: 1 on success, 0 on failure
+ */
+int increment_wallet_balance(const char *address, double amount)
+{
+        if (!address || amount <= 0)
+                return 0;
+
+        FILE *file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+        {
+                printf("Error opening wallet file.\n");
+                return 0;
+        }
+
+        StoredWallet *wallets = NULL;
+        size_t wallet_count = 0;
+        StoredWallet temp_wallet;
+
+        /* Load all wallets into memory */
+        while (fread(&temp_wallet, sizeof(StoredWallet), 1, file))
+        {
+                StoredWallet *new_wallets = realloc(wallets, (wallet_count + 1) * sizeof(StoredWallet));
+                if (!new_wallets)
+                {
+                        free(wallets);
+                        fclose(file);
+                        printf("Memory allocation error.\n");
+                        return 0;
+                }
+                wallets = new_wallets;
+                wallets[wallet_count++] = temp_wallet;
+        }
+        fclose(file);
+
+        /* Find the wallet and update its balance */
+        int updated = 0;
+        for (size_t i = 0; i < wallet_count; i++)
+        {
+                if (strcmp(wallets[i].address, address) == 0)
+                {
+                        wallets[i].balance += amount;
+                        updated = 1;
+                        break;
+                }
+        }
+
+        if (!updated)
+        {
+                printf("Wallet record not found.\n");
+                free(wallets);
+                return 0;
+        }
+
+        /* Save updated wallets */
+        file = fopen(WALLETS_FILE, "wb");
+        if (!file)
+        {
+                printf("Error opening wallet file for writing.\n");
+                free(wallets);
+                return 0;
+        }
+
+        fwrite(wallets, sizeof(StoredWallet), wallet_count, file);
+        fclose(file);
+        free(wallets);
+
+        return 1;
+}
+
+/**
+ * decrement_wallet_balance - Decrease the balance of a wallet
+ * @address: The wallet address
+ * @amount: The amount to subtract
+ * Return: 1 on success, 0 on failure (insufficient funds or wallet not found)
+ */
+int decrement_wallet_balance(const char *address, double amount)
+{
+        if (!address || amount <= 0)
+                return 0;
+
+        FILE *file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+        {
+                printf("Error opening wallet file.\n");
+                return 0;
+        }
+
+        StoredWallet *wallets = NULL;
+        size_t wallet_count = 0;
+        StoredWallet temp_wallet;
+
+        /* Load all wallets into memory */
+        while (fread(&temp_wallet, sizeof(StoredWallet), 1, file))
+        {
+                StoredWallet *new_wallets = realloc(wallets, (wallet_count + 1) * sizeof(StoredWallet));
+                if (!new_wallets)
+                {
+                        free(wallets);
+                        fclose(file);
+                        printf("Memory allocation error.\n");
+                        return 0;
+                }
+                wallets = new_wallets;
+                wallets[wallet_count++] = temp_wallet;
+        }
+        fclose(file);
+
+        /* Find the wallet and update its balance */
+        int updated = 0;
+        for (size_t i = 0; i < wallet_count; i++)
+        {
+                if (strcmp(wallets[i].address, address) == 0)
+                {
+                        if (wallets[i].balance < amount)
+                        {
+                                printf("Insufficient funds.\n");
+                                free(wallets);
+                                return 0;
+                        }
+
+                        wallets[i].balance -= amount;
+                        updated = 1;
+                        break;
+                }
+        }
+
+        if (!updated)
+        {
+                printf("Wallet record not found.\n");
+                free(wallets);
+                return 0;
+        }
+
+        /* Save updated wallets */
+        file = fopen(WALLETS_FILE, "wb");
+        if (!file)
+        {
+                printf("Error opening wallet file for writing.\n");
+                free(wallets);
+                return 0;
+        }
+
+        fwrite(wallets, sizeof(StoredWallet), wallet_count, file);
+        fclose(file);
+        free(wallets);
+
         return 1;
 }
 
@@ -223,15 +381,11 @@ Wallet *load_wallet_by_key(const char *private_key)
                         wallet->balance = stored_wallet.balance;
                         wallet->user_type = stored_wallet.user_type;
 
-                        printf("Wallet found and loaded successfully\n");
                         break;
                 }
         }
 
         fclose(file);
-
-        if (!wallet)
-                printf("Wallet not found for the provided private key\n");
 
         return wallet;
 }
@@ -319,8 +473,12 @@ Wallet *create_wallet(const char *email, const char *kitchen_name)
         sprintf(temp, "%s%ld", email, now);
         generate_hash(temp, wallet->address);
 
+        printf("Generate wallet address: %s\n", wallet->address);
+
         sprintf(temp, "%s%ld%s", email, now, wallet->address);
         generate_hash(temp, wallet->private_key);
+
+        printf("Generate wallet private key: %s\n", wallet->private_key);
 
         // Save wallet with kitchen name if user type is VENDOR
         if (!save_wallet(email, wallet->private_key, wallet->address,
@@ -331,4 +489,24 @@ Wallet *create_wallet(const char *email, const char *kitchen_name)
         }
 
         return wallet;
+}
+
+/**
+ * reload_wallet - Reload wallet from file using public key
+ * @current_wallet: Current wallet to reload
+ * Return: Updated wallet or NULL if not found
+ */
+Wallet *reload_wallet(Wallet *current_wallet)
+{
+        if (!current_wallet)
+                return NULL;
+
+        Wallet *temp_wallet = load_wallet_by_public_key(current_wallet->address);
+        if (temp_wallet)
+        {
+                free(current_wallet); // Free the old wallet before replacing
+                return temp_wallet;   // Return the new updated wallet
+        }
+
+        return current_wallet; // If loading fails, keep the old one
 }
