@@ -229,10 +229,10 @@ int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address
 
         /* Prepare transaction record */
         strncpy(transaction.from_address, from->address, HASH_LENGTH - 1);
-        // transaction.from_address[HASH_LENGTH - 1] = '\0';
+        transaction.from_address[HASH_LENGTH - 1] = '\0';
 
         strncpy(transaction.to_address, to_address, HASH_LENGTH - 1);
-        // transaction.to_address[HASH_LENGTH - 1] = '\0';
+        transaction.to_address[HASH_LENGTH - 1] = '\0';
 
         transaction.amount = amount;
         transaction.type = type;

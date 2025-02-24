@@ -533,8 +533,6 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 
                 // Load recipient's wallet and update balance
                 Wallet *recipient_wallet = load_wallet_by_public_key(to_address);
-                printf("Recipient wallet: %s\n", recipient_wallet->address);
-                printf("Recipient Email: %s\n", recipient_wallet->email);
                 if (recipient_wallet)
                 {
                         recipient_wallet->balance += amount;
