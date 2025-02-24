@@ -1,2 +1,2 @@
-gcc blockchain_job.c -o blockchain_job -lssl -lcrypto
-./blockchain_job
+gcc blockchain_job.c -o job_directory.exe -lssl -lcrypto
+./job_directory.exe
