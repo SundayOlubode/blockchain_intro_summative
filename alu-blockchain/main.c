@@ -484,7 +484,7 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 trans_type = TOKEN_TRANSFER;
 
                 if (!get_recipient_address(to_address, &recipient_name))
-                        break; // Exit if recipient retrieval fails
+                        return 0; // Exit if recipient retrieval fails
 
                 break;
 
@@ -658,6 +658,11 @@ int get_recipient_address(char *to_address, const char **recipient_name)
         {
                 get_string_input("Enter recipient's wallet address: ", to_address, HASH_LENGTH + 1);
                 Wallet *recipient_wallet = load_wallet_by_public_key(to_address);
+                if (!recipient_wallet)
+                {
+                        printf("Error: No wallet found for the given address.\n");
+                        return 0;
+                }
                 *recipient_name = recipient_wallet->email;
                 return 1;
         }
@@ -677,6 +682,10 @@ int get_recipient_address(char *to_address, const char **recipient_name)
                 to_address[HASH_LENGTH - 1] = '\0';
                 *recipient_name = recipient_wallet->email;
                 return 1;
+        }
+        else
+        {
+                return 0;
         }
 
         printf("Invalid option. Transaction canceled.\n");
