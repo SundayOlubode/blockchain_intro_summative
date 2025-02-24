@@ -575,7 +575,7 @@ Block *mine_block(Blockchain *chain)
         new_block = create_block(chain);
         if (!new_block)
         {
-                printf("❌ Block creation failed.\n");
+                printf("Block creation failed.\n");
                 return NULL;
         }
 
@@ -608,7 +608,7 @@ Block *mine_block(Blockchain *chain)
         validator = select_validator(chain);
         if (!validator)
         {
-                printf("❌ No validator selected. Block reward skipped.\n");
+                printf("No validator selected. Block reward skipped.\n");
         }
         else
         {

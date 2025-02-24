@@ -79,13 +79,12 @@ int load_profiles_from_file(void)
  * @program: Study program/major
  * Return: Combined profile and wallet struct or NULL on failure
  */
-StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
-                                                 int year, const char *program)
+StudentProfileWithWallet *create_student_profile(const char *email)
 {
         Wallet *wallet;
         StudentProfileWithWallet *combined;
 
-        if (!name || !email || !program || year < 1 || year > 4)
+        if (!email)
                 return NULL;
 
         if (strstr(email, STUDENT_DOMAIN) == NULL)
@@ -128,21 +127,13 @@ StudentProfileWithWallet *create_student_profile(const char *name, const char *e
 
         /* Initialize profile */
         combined->profile.student_id = next_student_id++;
-        strncpy(combined->profile.name, name, MAX_NAME - 1);
         strncpy(combined->profile.email, email, MAX_EMAIL - 1);
-        combined->profile.year_of_study = year;
-        strncpy(combined->profile.program, program, 49);
         strncpy(combined->profile.wallet_address, wallet->address, HASH_LENGTH);
 
-        /* Copy wallet into combined struct */
         memcpy(&combined->wallet, wallet, sizeof(Wallet));
 
         printf("\nStudent Profile Created:\n");
-        printf("ID: %u\n", combined->profile.student_id);
-        printf("Name: %s\n", combined->profile.name);
         printf("Email: %s\n", combined->profile.email);
-        printf("Year: %d\n", combined->profile.year_of_study);
-        printf("Program: %s\n", combined->profile.program);
         printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
         student_count++;
@@ -160,13 +151,12 @@ StudentProfileWithWallet *create_student_profile(const char *name, const char *e
  * @role: Staff role
  * Return: New staff profile or NULL on failure
  */
-StaffProfileWithWallet *create_staff_profile(const char *name, const char *email,
-                                             const char *department, const char *role)
+StaffProfileWithWallet *create_staff_profile(const char *email)
 {
         Wallet *wallet;
         StaffProfileWithWallet *combined;
 
-        if (!name || !email || !department || !role)
+        if (!email)
                 return NULL;
 
         if (strstr(email, STAFF_DOMAIN) == NULL)
@@ -205,10 +195,7 @@ StaffProfileWithWallet *create_staff_profile(const char *name, const char *email
 
         /* Initialize staff profile */
         combined->profile.staff_id = next_staff_id++;
-        strncpy(combined->profile.name, name, MAX_NAME - 1);
         strncpy(combined->profile.email, email, MAX_EMAIL - 1);
-        strncpy(combined->profile.department, department, 49);
-        strncpy(combined->profile.role, role, 29);
         strncpy(combined->profile.wallet_address, wallet->address, HASH_LENGTH);
 
         /* Copy wallet into combined struct */

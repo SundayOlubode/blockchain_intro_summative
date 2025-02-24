@@ -82,18 +82,12 @@ int main(void)
                                 break;
                         }
 
-                        char name[MAX_NAME];
-                        char program[50];
-                        char department[50];
-                        char role[30];
-                        int year;
                         void *profile = NULL;
                         StudentProfileWithWallet *studentDetail = NULL;
                         VendorProfileWithWallet *vendorDetail = NULL;
                         StaffProfileWithWallet *staffDetail = NULL;
 
                         printf("\n=== Create New Wallet ===\n");
-                        // get_string_input("Enter your name: ", name, MAX_NAME);
                         get_string_input("Enter your ALU email: ", email, MAX_EMAIL);
 
                         if (!verify_email_domain(email))
@@ -112,12 +106,7 @@ int main(void)
                         /* Create appropriate profile based on email domain */
                         if (strstr(email, STUDENT_DOMAIN))
                         {
-                                // printf("Enter year of study (1-4): ");
-                                // scanf("%d", &year);
-                                // clear_input_buffer();
-                                // get_string_input("Enter program: ", program, 50);
-                                year = 3;
-                                studentDetail = create_student_profile(name, email, year, program);
+                                studentDetail = create_student_profile(email);
                                 profile = studentDetail ? &studentDetail->profile : NULL;
                                 current_wallet = studentDetail ? &studentDetail->wallet : NULL;
                                 printf("Student wallet address: %s\n", current_wallet->address);
@@ -125,9 +114,7 @@ int main(void)
                         }
                         else if (strstr(email, STAFF_DOMAIN))
                         {
-                                // get_string_input("Enter department: ", department, 50);
-                                // get_string_input("Enter role: ", role, 30);
-                                staffDetail = create_staff_profile(name, email, department, role);
+                                staffDetail = create_staff_profile(email);
                                 profile = staffDetail ? &staffDetail->profile : NULL;
                                 current_wallet = staffDetail ? &staffDetail->wallet : NULL;
                         }
@@ -540,6 +527,7 @@ int process_payment(Blockchain *chain, Wallet *wallet)
         /* Create the transaction */
         if (initiate_transaction(chain, wallet, to_address, amount, trans_type))
         {
+                wallet = load_wallet_by_public_key(wallet->address);
                 wallet->balance -= amount;
 
                 // Load recipient's wallet and update balance
@@ -570,7 +558,6 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 int create_institutional_wallets(void)
 {
         printf("\nPreloading school wallets...\n");
-        sleep(1);
         const struct
         {
                 const char *address;

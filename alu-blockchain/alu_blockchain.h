@@ -8,6 +8,7 @@
 #include <time.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <stdbool.h>
 
 /* Constants */
 #define MAX_EMAIL 100
@@ -213,10 +214,8 @@ double get_unspent_balance(const char *address);
 Block *mine_block(Blockchain *chain);
 void add_kitchen(const char *kitchen_name, const char *email, const char *wallet_address);
 VendorProfile *get_kitchen_vendor(int kitchen_index);
-StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
-                                                 int year, const char *program);
-StaffProfileWithWallet *create_staff_profile(const char *name, const char *email,
-                                             const char *department, const char *role);
+StudentProfileWithWallet *create_student_profile(const char *email);
+StaffProfileWithWallet *create_staff_profile(const char *email);
 VendorProfileWithWallet *create_vendor_profile(const char *name, const char *email);
 int save_profiles_to_file(void);
 int load_profiles_from_file(void);

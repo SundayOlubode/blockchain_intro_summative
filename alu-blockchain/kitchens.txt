@@ -1,0 +1,4 @@
+Pius Cuisine,pius@vendor.com,0x000pius000000cuisine000000,100.00
+Joshua's Kitchen,joshua@vendor.com,0x000joshua000000kitchen000000,100.00
+Pascal's Kitchen,pascal@vendor.com,0x000pascal000000kitchen000000,100.00
+Fatim Cafe,fatim@aluvendor.com,6349c9907bb8001c196a3fb3c6158319e35c85a0c1b972e2e7ecc39c2d3f2de1,100.00
