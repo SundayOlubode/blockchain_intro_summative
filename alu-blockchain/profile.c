@@ -113,9 +113,6 @@ StudentProfileWithWallet *create_student_profile(const char *email)
                 return NULL;
         }
 
-        printf("Wallet created for %s\n", wallet->name);
-        printf("Wallet address: %s\n", wallet->address);
-
         /* Allocate memory for combined struct */
         combined = (StudentProfileWithWallet *)malloc(sizeof(StudentProfileWithWallet));
         if (!combined)

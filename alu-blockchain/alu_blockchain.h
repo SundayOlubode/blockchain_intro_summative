@@ -229,5 +229,7 @@ void display_cafeteria_menu(void);
 void get_string_input(const char *prompt, char *buffer, size_t size);
 void clear_input_buffer(void);
 int process_payment(Blockchain *chain, Wallet *wallet);
+int get_recipient_address(char *to_address, const char **recipient_name);
+Wallet *load_wallet_by_email(const char *email);
 
 #endif /* ALU_BLOCKCHAIN_H */

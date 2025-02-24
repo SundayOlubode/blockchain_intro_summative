@@ -344,7 +344,7 @@ void print_transaction_history(Wallet *wallet)
                 return;
         }
 
-        printf("\nTransaction History for Wallet: %s...\n", wallet->address);
+        printf("\nWallet Address: %s\n", wallet->address);
 
         while (fread(&transaction, sizeof(Transaction), 1, file))
         {
@@ -357,8 +357,8 @@ void print_transaction_history(Wallet *wallet)
                                                                              : transaction.type == HEALTH_INSURANCE    ? "Health Insurance"
                                                                                                                        : "Token Transfer");
                         printf("Amount: %.2f %s\n", transaction.amount, TOKEN_SYMBOL);
-                        printf("From: %.16s...\n", transaction.from_address);
-                        printf("To: %.16s...\n", transaction.to_address);
+                        printf("From: %s\n", transaction.from_address);
+                        printf("To: %s\n", transaction.to_address);
                         printf("Time: %s", ctime(&transaction.timestamp));
                         printf("Status: %s\n", strcmp(transaction.from_address, wallet->address) == 0 ? "Sent" : "Received");
                 }

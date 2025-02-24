@@ -275,6 +275,49 @@ Wallet *load_wallet_by_public_key(const char *public_key)
 /**
  * create_wallet - Create a new wallet with verified email
  * @email: User's email
+ * Return: New Wallet struct or NULL on failure
+ */
+Wallet *load_wallet_by_email(const char *email)
+{
+        FILE *file;
+        StoredWallet stored_wallet;
+        Wallet *wallet = NULL;
+
+        file = fopen(WALLETS_FILE, "rb");
+        if (!file)
+                return NULL;
+
+        while (fread(&stored_wallet, sizeof(StoredWallet), 1, file))
+        {
+                if (strcmp(stored_wallet.email, email) == 0) // Compare public key
+                {
+                        wallet = malloc(sizeof(Wallet));
+                        if (wallet)
+                        {
+                                strncpy(wallet->email, stored_wallet.email, MAX_EMAIL - 1);
+                                wallet->email[MAX_EMAIL - 1] = '\0'; // Ensure null termination
+
+                                strncpy(wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                                wallet->private_key[HASH_LENGTH - 1] = '\0'; // Ensure null termination
+
+                                strncpy(wallet->address, stored_wallet.address, HASH_LENGTH - 1);
+                                wallet->address[HASH_LENGTH - 1] = '\0'; // Ensure null termination
+
+                                wallet->balance = stored_wallet.balance;
+                                wallet->user_type = stored_wallet.user_type;
+                                // strncpy(wallet->kitchen_name, stored_wallet.kitchen_name, MAX_NAME - 1);
+                        }
+                        break;
+                }
+        }
+
+        fclose(file);
+        return wallet;
+}
+
+/**
+ * create_wallet - Create a new wallet with verified email
+ * @email: User's email
  * @kitchen_name: Optional kitchen name (for VENDOR user type)
  * Return: New Wallet struct or NULL on failure
  */
@@ -318,12 +361,8 @@ Wallet *create_wallet(const char *email, const char *kitchen_name)
         sprintf(temp, "%s%ld", email, now);
         generate_hash(temp, wallet->address);
 
-        printf("Generate wallet address: %s\n", wallet->address);
-
         sprintf(temp, "%s%ld%s", email, now, wallet->address);
         generate_hash(temp, wallet->private_key);
-
-        printf("Generate wallet private key: %s\n", wallet->private_key);
 
         // Save wallet with kitchen name if user type is VENDOR
         if (!save_wallet(email, wallet->private_key, wallet->address,
@@ -424,9 +463,6 @@ VendorProfile *get_kitchen_vendor(int kitchen_index)
                                kitchen->kitchen_name, kitchen->email,
                                kitchen->wallet_address, &kitchen->balance);
                         trim_newline(kitchen->wallet_address); // Remove newline if present
-
-                        // Debugging: Print extracted wallet address
-                        printf("Extracted Wallet Address: %s\n", kitchen->wallet_address);
 
                         fclose(file);
                         return kitchen;

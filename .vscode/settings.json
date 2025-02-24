@@ -1,5 +1,7 @@
 {
   "files.associations": {
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "basic.h": "c",
+    "alu_blockchain.h": "c"
   }
 }

@@ -463,7 +463,6 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 }
 
                 strcpy(to_address, kitchen->wallet_address);
-                printf("Kitchen Address: %s\n", to_address);
                 recipient_name = kitchen->kitchen_name;
                 free(kitchen); // Don't forget to free the memory after usage
                 break;
@@ -483,8 +482,10 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 
         case 5: /* Token Transfer */
                 trans_type = TOKEN_TRANSFER;
-                get_string_input("Enter recipient's wallet address: ", to_address, HASH_LENGTH + 1);
-                recipient_name = "Custom Address";
+
+                if (!get_recipient_address(to_address, &recipient_name))
+                        break; // Exit if recipient retrieval fails
+
                 break;
 
         default:
@@ -532,6 +533,8 @@ int process_payment(Blockchain *chain, Wallet *wallet)
 
                 // Load recipient's wallet and update balance
                 Wallet *recipient_wallet = load_wallet_by_public_key(to_address);
+                printf("Recipient wallet: %s\n", recipient_wallet->address);
+                printf("Recipient Email: %s\n", recipient_wallet->email);
                 if (recipient_wallet)
                 {
                         recipient_wallet->balance += amount;
@@ -629,4 +632,53 @@ int create_vendor_wallets(void)
         }
 
         return 1;
+}
+
+/**
+ * get_recipient_address - Gets the recipient's wallet address by email or direct input.
+ * @to_address: Buffer to store the recipient's wallet address.
+ * @recipient_name: Pointer to store the recipient's identifier (email or custom).
+ * Return: 1 if successful, 0 otherwise.
+ */
+int get_recipient_address(char *to_address, const char **recipient_name)
+{
+        int choice;
+        char recipient_email[50];
+
+        printf("\nChoose recipient identifier:\n");
+        printf("1. Wallet Address\n");
+        printf("2. Email Address\n");
+        printf("\nSelect option (1-2): ");
+
+        scanf("%d", &choice);
+        while (getchar() != '\n')
+                ; // Clear input buffer
+
+        if (choice == 1)
+        {
+                get_string_input("Enter recipient's wallet address: ", to_address, HASH_LENGTH + 1);
+                Wallet *recipient_wallet = load_wallet_by_public_key(to_address);
+                *recipient_name = recipient_wallet->email;
+                return 1;
+        }
+        else if (choice == 2)
+        {
+                get_string_input("Enter recipient's email: ", recipient_email, sizeof(recipient_email));
+
+                /* Find wallet by email */
+                Wallet *recipient_wallet = load_wallet_by_email(recipient_email);
+                if (!recipient_wallet)
+                {
+                        printf("Error: No wallet found for the given email.\n");
+                        return 0;
+                }
+
+                strncpy(to_address, recipient_wallet->address, HASH_LENGTH - 1);
+                to_address[HASH_LENGTH - 1] = '\0';
+                *recipient_name = recipient_wallet->email;
+                return 1;
+        }
+
+        printf("Invalid option. Transaction canceled.\n");
+        return 0;
 }
