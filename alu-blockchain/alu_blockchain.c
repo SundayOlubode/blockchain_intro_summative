@@ -31,57 +31,6 @@ void generate_hash(const char *input, char *output)
         EVP_MD_CTX_free(mdctx);
 }
 
-// /**
-//  * initialize_blockchain - Initialize new blockchain
-//  * Return: Pointer to new blockchain or NULL on failure
-//  */
-// Blockchain *initialize_blockchain(void)
-// {
-//         Blockchain *chain;
-//         Block *genesis;
-//         time_t now;
-//         char temp[512];
-
-//         chain = malloc(sizeof(Blockchain));
-//         if (!chain)
-//                 return NULL;
-
-//         /* Initialize token */
-//         strncpy(chain->token.token_name, TOKEN_NAME, 49);
-//         strncpy(chain->token.symbol, TOKEN_SYMBOL, 4);
-//         chain->token.total_supply = INITIAL_SUPPLY;
-//         chain->token.circulating_supply = CIRCULATING_SUPPLY;
-
-//         /* Create genesis block */
-//         genesis = malloc(sizeof(Block));
-//         if (!genesis)
-//         {
-//                 free(chain);
-//                 return NULL;
-//         }
-
-//         genesis->index = 0;
-//         strcpy(genesis->previous_hash,
-//                "0000000000000000000000000000000000000000000000000000000000000000");
-//         time(&now);
-//         strftime(genesis->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
-//         genesis->nonce = 0;
-//         genesis->transaction_count = 0;
-//         genesis->next = NULL;
-
-//         /* Calculate genesis block hash */
-//         sprintf(temp, "%u%s%s%u",
-//                 genesis->index, genesis->previous_hash,
-//                 genesis->timestamp, genesis->nonce);
-//         generate_hash(temp, genesis->current_hash);
-
-//         chain->genesis = genesis;
-//         chain->latest = genesis;
-//         chain->block_count = 1;
-
-//         return chain;
-// }
-
 /**
  * initialize_blockchain - Initialize blockchain system
  * Return: Pointer to initialized blockchain
@@ -465,7 +414,7 @@ int validate_block(Blockchain *chain, Block *block)
         /* Check previous hash */
         if (strcmp(block->previous_hash, chain->latest->current_hash) != 0)
         {
-                printf("❌ Previous hash mismatch! Expected: %s, Found: %s\n",
+                printf("Previous hash mismatch! Expected: %s, Found: %s\n",
                        chain->latest->current_hash, block->previous_hash);
                 return 0;
         }
@@ -477,7 +426,7 @@ int validate_block(Blockchain *chain, Block *block)
 
         if (strcmp(computed_hash, block->current_hash) != 0)
         {
-                printf("❌ Hash mismatch! Computed: %s, Expected: %s\n",
+                printf("Hash mismatch! Computed: %s, Expected: %s\n",
                        computed_hash, block->current_hash);
                 return 0;
         }
@@ -604,7 +553,7 @@ Block *mine_block(Blockchain *chain)
                 free(tx_pool);
         }
 
-        /* Step 3: Select a validator */
+        /* Select a validator */
         validator = select_validator(chain);
         if (!validator)
         {
