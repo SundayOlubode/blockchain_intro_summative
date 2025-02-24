@@ -87,14 +87,17 @@ typedef struct
         char wallet_address[HASH_LENGTH + 1];
 } StaffProfile;
 
-typedef struct
+typedef struct VendorProfile
 {
-        unsigned int vendor_id;
-        char kitchen_name[MAX_NAME];
-        char email[MAX_EMAIL];
-        char wallet_address[HASH_LENGTH + 1];
+        int vendor_id;
+        char kitchen_name[50];
+        char email[50];
+        char wallet_address[HASH_LENGTH];
         double balance;
+        struct VendorProfile *next;
 } VendorProfile;
+
+extern VendorProfile *vendor_list; // Declare, but don't initialize
 
 /* Token Structure */
 typedef struct
@@ -183,9 +186,6 @@ typedef struct
         Wallet wallet;
 } VendorProfileWithWallet;
 
-const VendorProfile *get_kitchen_vendor(int index);
-void print_kitchen_info(const VendorProfile *kitchen);
-
 /* Function prototypes */
 void generate_hash(const char *input, char *output);
 Blockchain *initialize_blockchain(void);
@@ -201,18 +201,18 @@ void print_transaction_history(Wallet *wallet);
 Wallet *load_wallet_by_public_key(const char *public_key);
 int update_wallet_record(const Wallet *updated_wallet);
 int create_institutional_wallets(void);
-int add_transaction(Blockchain *chain, Transaction *transaction);
+int add_transaction(Block *new_block, Transaction *transaction);
 Block *create_block(Blockchain *chain);
 int validate_block(Blockchain *chain, Block *block);
 Wallet *select_validator();
 void print_blockchain(const Blockchain *chain);
 Transaction *extract_transactions();
-int decrement_wallet_balance(const char *address, double amount);
-int increment_wallet_balance(const char *address, double amount);
 Wallet *reload_wallet(Wallet *current_wallet);
 int create_vendor_wallets(void);
-
-/* Profile management */
+double get_unspent_balance(const char *address);
+Block *mine_block(Blockchain *chain);
+void add_kitchen(const char *kitchen_name, const char *email, const char *wallet_address);
+VendorProfile *get_kitchen_vendor(int kitchen_index);
 StudentProfileWithWallet *create_student_profile(const char *name, const char *email,
                                                  int year, const char *program);
 StaffProfileWithWallet *create_staff_profile(const char *name, const char *email,
@@ -224,7 +224,11 @@ int check_email_exists(const char *email);
 UserType get_user_type_from_email(const char *email);
 int save_wallet(const char *email, const char *private_key,
                 const char *address, const char *kitchen_name);
-Wallet *create_student_wallet(StudentProfile *profile, const char *name, const char *email,
-                              int year, const char *program);
+void display_menu(void);
+void display_payment_menu(void);
+void display_cafeteria_menu(void);
+void get_string_input(const char *prompt, char *buffer, size_t size);
+void clear_input_buffer(void);
+int process_payment(Blockchain *chain, Wallet *wallet);
 
 #endif /* ALU_BLOCKCHAIN_H */

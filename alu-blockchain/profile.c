@@ -215,11 +215,7 @@ StaffProfileWithWallet *create_staff_profile(const char *name, const char *email
         memcpy(&combined->wallet, wallet, sizeof(Wallet));
 
         printf("\nStaff Profile Created:\n");
-        printf("ID: %u\n", combined->profile.staff_id);
-        printf("Name: %s\n", combined->profile.name);
         printf("Email: %s\n", combined->profile.email);
-        printf("Department: %s\n", combined->profile.department);
-        printf("Role: %s\n", combined->profile.role);
         printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
         staff_count++;
@@ -292,41 +288,14 @@ VendorProfileWithWallet *create_vendor_profile(const char *kitchen_name, const c
         printf("Email: %s\n", combined->profile.email);
         printf("Wallet Address: %s\n", combined->profile.wallet_address);
 
+        printf("Vendor wallet address: %s\n", wallet->address);
+        add_kitchen(kitchen_name, wallet->email, wallet->address);
+
         vendor_count++;
         free(wallet);
         save_profiles_to_file();
         return combined;
 }
-
-// /**
-//  * check_email_exists - Check if email is already registered
-//  * @email: Email to check
-//  * Return: 1 if exists, 0 if not
-//  */
-// int check_email_exists(const char *email)
-// {
-//         int i;
-
-//         for (i = 0; i < student_count; i++)
-//         {
-//                 if (strcmp(students[i].email, email) == 0)
-//                         return 1;
-//         }
-
-//         for (i = 0; i < staff_count; i++)
-//         {
-//                 if (strcmp(staff[i].email, email) == 0)
-//                         return 1;
-//         }
-
-//         for (i = 0; i < vendor_count; i++)
-//         {
-//                 if (strcmp(vendors[i].email, email) == 0)
-//                         return 1;
-//         }
-
-//         return 0;
-// }
 
 /**
  * get_profile_by_email - Get profile by email address

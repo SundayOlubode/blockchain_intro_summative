@@ -1,7 +1,0 @@
-# ALU Blockchain Configuration
-initial_supply=1000000
-block_reward=2
-max_transactions=100
-backup_directory=./backups
-auto_backup=1
-backup_interval=10

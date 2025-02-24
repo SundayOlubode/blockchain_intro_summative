@@ -2,15 +2,6 @@
 #include "alu_blockchain.h"
 #include "config.h"
 
-/* Function prototypes */
-void display_menu(void);
-void display_payment_menu(void);
-void display_cafeteria_menu(void);
-void get_string_input(const char *prompt, char *buffer, size_t size);
-void clear_input_buffer(void);
-int process_payment(Blockchain *chain, Wallet *wallet);
-void configure_system(void);
-
 /**
  * main - Entry point
  * Return: 0 on success, 1 on failure
@@ -42,7 +33,7 @@ int main(void)
 
         /* Initialize blockchain */
         chain = initialize_blockchain();
-        sleep(1.5);
+        sleep(1);
         if (!chain)
         {
                 printf("Failed to initialize blockchain\n");
@@ -53,13 +44,16 @@ int main(void)
         /* Create institutional wallets */
         create_institutional_wallets();
 
+        sleep(1);
+
         /* Create Vendor wallets */
         create_vendor_wallets();
 
         /* Load existing profiles */
         if (!load_profiles_from_file())
         {
-                printf("No existing profiles found. Starting fresh.\n");
+                printf("\nStarting fresh....\n");
+                sleep(1.5);
         }
 
         printf("\nWelcome to ALU Payment System\n");
@@ -126,6 +120,8 @@ int main(void)
                                 studentDetail = create_student_profile(name, email, year, program);
                                 profile = studentDetail ? &studentDetail->profile : NULL;
                                 current_wallet = studentDetail ? &studentDetail->wallet : NULL;
+                                printf("Student wallet address: %s\n", current_wallet->address);
+                                printf("Student wallet private key: %s\n", current_wallet->private_key);
                         }
                         else if (strstr(email, STAFF_DOMAIN))
                         {
@@ -188,7 +184,7 @@ int main(void)
                                 break;
                         }
 
-                        current_wallet = reload_wallet(current_wallet);
+                        current_wallet = load_wallet_by_public_key(current_wallet->address);
 
                         if (process_payment(chain, current_wallet))
                         {
@@ -211,7 +207,7 @@ int main(void)
                                 break;
                         }
 
-                        current_wallet = reload_wallet(current_wallet);
+                        current_wallet = load_wallet_by_public_key(current_wallet->address);
 
                         printf("\n=== Wallet Balance ===\n");
                         printf("Email: %s\n", current_wallet->email);
@@ -235,7 +231,11 @@ int main(void)
                         print_blockchain(chain);
                         break;
 
-                case 7: /* View Blockchain Status */
+                case 7: /* Mine Block */
+                        mine_block(chain);
+                        break;
+
+                case 8: /* View Blockchain Status */
                         printf("\n=== Blockchain Status ===\n");
                         printf("Total Blocks: %d\n", chain->block_count);
                         printf("Token Name: %s (%s)\n", chain->token.token_name,
@@ -249,7 +249,7 @@ int main(void)
                                 printf("Blockchain Integrity: COMPROMISED!\n");
                         break;
 
-                case 8: /* Backup Blockchain */
+                case 9: /* Backup Blockchain */
                         printf("\n=== Backup Blockchain ===\n");
                         if (backup_blockchain(chain))
                                 printf("Blockchain backed up successfully!\n");
@@ -257,7 +257,7 @@ int main(void)
                                 printf("Failed to backup blockchain.\n");
                         break;
 
-                case 9: /* Restore Blockchain */
+                case 10: /* Restore Blockchain */
                         printf("\n=== Restore Blockchain ===\n");
                         printf("Warning: This will replace the current blockchain.\n");
                         printf("Are you sure? (y/n): ");
@@ -273,10 +273,6 @@ int main(void)
                                                 printf("Failed to restore blockchain.\n");
                                 }
                         }
-                        break;
-
-                case 10: /* Configure System */
-                        // configure_system();
                         break;
                 case 11: /* Exit */
                         printf("\nThank you for using ALU Payment System!\n");
@@ -306,10 +302,10 @@ void display_menu(void)
         printf("4. View Balance\n");
         printf("5. View Transaction History\n");
         printf("6. View Blockchain\n");
-        printf("7. View Blockchain Status\n");
-        printf("8. Backup Blockchain\n");
-        printf("9. Restore Blockchain\n");
-        printf("10. Configure System\n");
+        printf("7. Mine Block\n");
+        printf("8. View Blockchain Status\n");
+        printf("9. Backup Blockchain\n");
+        printf("10. Restore Blockchain\n");
         printf("11. Exit\n");
         printf("\nEnter your choice (1-11): ");
 }
@@ -328,16 +324,32 @@ void display_payment_menu(void)
         printf("\nSelect payment type (1-5): ");
 }
 
-/**
- * display_cafeteria_menu - Show available kitchens
- */
+// /**
+//  * display_cafeteria_menu - Show available kitchens
+//  */
 void display_cafeteria_menu(void)
 {
+        FILE *file = fopen("kitchens.txt", "r"); // Open the file in read mode
+        if (!file)
+        {
+                printf("\nNo kitchens available at the moment.\n");
+                return;
+        }
+
         printf("\n=== Select Kitchen ===\n");
-        printf("1. Pascal's Kitchen\n");
-        printf("2. Pius' Cuisine\n");
-        printf("3. Joshua's Kitchen\n");
-        printf("\nSelect kitchen (1-3): ");
+
+        char line[256];
+        int index = 1;
+        while (fgets(line, sizeof(line), file))
+        {
+                char kitchen_name[MAX_NAME];
+                sscanf(line, "%99[^,]", kitchen_name); // Read the kitchen name before the first comma
+                printf("%d. %s\n", index++, kitchen_name);
+        }
+
+        fclose(file);
+
+        printf("\nSelect kitchen (1-%d): ", index - 1);
 }
 
 /**
@@ -446,8 +458,7 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 trans_type = CAFETERIA_PAYMENT;
                 display_cafeteria_menu();
 
-                if (scanf("%d", &kitchen_choice) != 1 ||
-                    kitchen_choice < 1 || kitchen_choice > 3)
+                if (scanf("%d", &kitchen_choice) != 1 || kitchen_choice < 1)
                 {
                         printf("Invalid kitchen selection.\n");
                         clear_input_buffer();
@@ -455,7 +466,9 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 }
                 clear_input_buffer();
 
-                const VendorProfile *kitchen = get_kitchen_vendor(kitchen_choice - 1);
+                VendorProfile *kitchen = get_kitchen_vendor(kitchen_choice - 1); // Get the kitchen based on the selection
+                printf("Selected kitchen: %s\n", kitchen->kitchen_name);
+                printf("Wallet Address: %s\n", kitchen->wallet_address);
                 if (!kitchen)
                 {
                         printf("Failed to get kitchen information.\n");
@@ -463,7 +476,9 @@ int process_payment(Blockchain *chain, Wallet *wallet)
                 }
 
                 strcpy(to_address, kitchen->wallet_address);
+                printf("Kitchen Address: %s\n", to_address);
                 recipient_name = kitchen->kitchen_name;
+                free(kitchen); // Don't forget to free the memory after usage
                 break;
         }
 
@@ -554,7 +569,7 @@ int process_payment(Blockchain *chain, Wallet *wallet)
  */
 int create_institutional_wallets(void)
 {
-        printf("\nCreating institutional wallets...\n");
+        printf("\nPreloading school wallets...\n");
         sleep(1);
         const struct
         {
@@ -593,7 +608,7 @@ int create_institutional_wallets(void)
  */
 int create_vendor_wallets(void)
 {
-        printf("\nCreating vendor wallets...\n");
+        printf("\nPreloading vendor wallets...\n");
         sleep(1);
 
         const struct
@@ -617,13 +632,13 @@ int create_vendor_wallets(void)
                         continue;
                 }
 
+                add_kitchen(vendors[i].kitchen_name, vendors[i].email, vendors[i].public_key);
+
                 if (!save_wallet(vendors[i].email, vendors[i].private_key, vendors[i].public_key, vendors[i].kitchen_name))
                 {
                         printf("Failed to save wallet for %s\n", vendors[i].kitchen_name);
                         return 0;
                 }
-
-                printf("Wallet created for %s\n", vendors[i].kitchen_name);
         }
 
         return 1;

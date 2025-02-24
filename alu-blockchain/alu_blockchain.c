@@ -212,6 +212,14 @@ int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address
         if (!chain || !from || !to_address || amount <= 0 || from->balance < amount)
                 return 0;
 
+        /* Check unspent balance to prevent double-spending */
+        double available_balance = get_unspent_balance(from->address);
+        if (available_balance < amount)
+        {
+                printf("Double-spending detected! Not enough unspent balance.\n");
+                return 0;
+        }
+
         recipient = load_wallet_by_public_key(to_address);
         if (!recipient)
         {
@@ -220,8 +228,12 @@ int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address
         }
 
         /* Prepare transaction record */
-        strncpy(transaction.from_address, from->address, HASH_LENGTH);
-        strncpy(transaction.to_address, to_address, HASH_LENGTH);
+        strncpy(transaction.from_address, from->address, HASH_LENGTH - 1);
+        // transaction.from_address[HASH_LENGTH - 1] = '\0';
+
+        strncpy(transaction.to_address, to_address, HASH_LENGTH - 1);
+        // transaction.to_address[HASH_LENGTH - 1] = '\0';
+
         transaction.amount = amount;
         transaction.type = type;
         time(&transaction.timestamp);
@@ -252,8 +264,6 @@ int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address
         fclose(tx_pool);
 
         /* Save updated wallets */
-        // decrement_wallet_balance(from->address, amount);
-        // increment_wallet_balance(to_address, amount);
         update_wallet_record(from);
         update_wallet_record(recipient);
 
@@ -266,7 +276,7 @@ int initiate_transaction(Blockchain *chain, Wallet *from, const char *to_address
         {
                 printf("\nTransaction pool full. Creating new block...\n");
                 sleep(2);
-                create_block(chain);
+                mine_block(chain);
         }
 
         return 1;
@@ -388,18 +398,15 @@ void cleanup_blockchain(Blockchain *chain)
  * @transaction: Transaction to add
  * Return: 1 on success, 0 on failure
  */
-int add_transaction(Blockchain *chain, Transaction *transaction)
+int add_transaction(Block *new_block, Transaction *transaction)
 {
-        Block *latest;
-
-        if (!chain || !transaction)
+        if (!new_block || !transaction)
                 return 0;
 
-        latest = chain->latest;
-        if (latest->transaction_count >= MAX_TRANSACTIONS)
+        if (new_block->transaction_count >= MAX_TRANSACTIONS)
                 return 0;
 
-        latest->transactions[latest->transaction_count++] = *transaction;
+        new_block->transactions[new_block->transaction_count++] = *transaction;
         return 1;
 }
 
@@ -413,7 +420,6 @@ Block *create_block(Blockchain *chain)
         Block *new_block, *latest;
         time_t now;
         char temp[512];
-        Transaction *tx_pool;
 
         if (!chain || !chain->latest)
                 return NULL;
@@ -424,44 +430,20 @@ Block *create_block(Blockchain *chain)
 
         latest = chain->latest;
         new_block->index = latest->index + 1;
-        strncpy(new_block->previous_hash, latest->current_hash, HASH_LENGTH);
+        strncpy(new_block->previous_hash, latest->current_hash, HASH_LENGTH - 1);
+        new_block->previous_hash[HASH_LENGTH - 1] = '\0'; // Ensure null termination
+
         time(&now);
         strftime(new_block->timestamp, 30, "%Y-%m-%d %H:%M:%S", localtime(&now));
         new_block->nonce = 0;
         new_block->transaction_count = 0;
         new_block->next = NULL;
-
-        /* Extract transactions from TX_POOL */
-        tx_pool = extract_transactions();
-        if (tx_pool)
-        {
-                printf("Transactions extracted from pool.\n");
-                while (tx_count < MAX_TRANSACTIONS && strlen(tx_pool[tx_count].from_address) > 0)
-                {
-                        new_block->transactions[tx_count] = tx_pool[tx_count];
-                        new_block->transaction_count++;
-                        tx_count++;
-                }
-                free(tx_pool);
-        }
+        new_block->reward = BLOCK_REWARD;
 
         /* Generate block hash */
         sprintf(temp, "%u%s%s%u", new_block->index, new_block->previous_hash,
                 new_block->timestamp, new_block->nonce);
         generate_hash(temp, new_block->current_hash);
-
-        /* Link new block to blockchain */
-        latest->next = new_block;
-        chain->latest = new_block;
-        chain->block_count++;
-
-        /* Set tx_count to zero */
-        tx_count = 0;
-
-        printf("New block created: #%d\n", new_block->index + 1);
-
-        /* Save blockchain as a new backup */
-        backup_blockchain(chain);
 
         return new_block;
 }
@@ -482,7 +464,11 @@ int validate_block(Blockchain *chain, Block *block)
 
         /* Check previous hash */
         if (strcmp(block->previous_hash, chain->latest->current_hash) != 0)
+        {
+                printf("❌ Previous hash mismatch! Expected: %s, Found: %s\n",
+                       chain->latest->current_hash, block->previous_hash);
                 return 0;
+        }
 
         /* Recompute hash */
         sprintf(temp, "%u%s%s%u", block->index, block->previous_hash,
@@ -490,8 +476,13 @@ int validate_block(Blockchain *chain, Block *block)
         generate_hash(temp, computed_hash);
 
         if (strcmp(computed_hash, block->current_hash) != 0)
+        {
+                printf("❌ Hash mismatch! Computed: %s, Expected: %s\n",
+                       computed_hash, block->current_hash);
                 return 0;
+        }
 
+        printf("✅ Block validation successful!\n");
         return 1;
 }
 
@@ -506,7 +497,6 @@ Wallet *select_validator()
         double total_balance = 0, random_value, cumulative_weight = 0;
         FILE *file;
         StoredWallet stored_wallet;
-        // Wallet *current_wallet = NULL;
 
         // Open the wallets file
         file = fopen(WALLETS_FILE, "rb");
@@ -542,8 +532,11 @@ Wallet *select_validator()
                         if (selected_wallet)
                         {
                                 strncpy(selected_wallet->email, stored_wallet.email, MAX_EMAIL - 1);
+                                selected_wallet->email[MAX_EMAIL - 1] = '\0'; // Ensure null termination
                                 strncpy(selected_wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                                selected_wallet->private_key[HASH_LENGTH - 1] = '\0'; // Ensure null termination
                                 strncpy(selected_wallet->address, stored_wallet.address, HASH_LENGTH - 1);
+                                selected_wallet->address[HASH_LENGTH - 1] = '\0'; // Ensure null termination
                                 selected_wallet->balance = stored_wallet.balance;
                                 selected_wallet->user_type = stored_wallet.user_type;
                                 // selected_wallet->next = NULL;
@@ -554,6 +547,91 @@ Wallet *select_validator()
 
         fclose(file);
         return selected_wallet;
+}
+
+/**
+ * mine_block - Mines a new block, validates it, and rewards the validator
+ * @chain: Blockchain
+ * Return: Pointer to the mined block, NULL on failure
+ */
+Block *mine_block(Blockchain *chain)
+{
+        Block *new_block, *latest;
+        Transaction *tx_pool;
+        Wallet *validator;
+        double mining_reward = 2.0; /* Adjust reward as needed */
+
+        if (!chain)
+        {
+                printf("Blockchain not initialized.\n");
+                return NULL;
+        }
+
+        latest = chain->latest;
+
+        printf("\n⛏️    Mining new block...\n");
+        sleep(1.5);
+
+        new_block = create_block(chain);
+        if (!new_block)
+        {
+                printf("❌ Block creation failed.\n");
+                return NULL;
+        }
+
+        sleep(1.0);
+        if (!validate_block(chain, new_block))
+        {
+                printf("❌ Block validation failed. Discarding block.\n");
+                return NULL;
+        }
+
+        /* Extract transactions from TX_POOL */
+        sleep(1.0);
+        tx_pool = extract_transactions();
+        if (tx_pool)
+        {
+                int i = 0;
+                while (i < tx_count && strlen(tx_pool[i].from_address) > 0)
+                {
+                        /* Add transactions */
+                        if (!add_transaction(new_block, &tx_pool[i]))
+                        {
+                                printf("Failed to add transaction to block #%d\n", new_block->index);
+                        }
+                        i++;
+                }
+                free(tx_pool);
+        }
+
+        /* Step 3: Select a validator */
+        validator = select_validator(chain);
+        if (!validator)
+        {
+                printf("❌ No validator selected. Block reward skipped.\n");
+        }
+        else
+        {
+                validator->balance += mining_reward;
+                update_wallet_record(validator);
+                printf("\nBlock mined by %s %s. Reward: %.2f\n", validator->email, validator->address, mining_reward);
+        }
+
+        /* Link new block to blockchain first */
+        latest->next = new_block;
+        chain->latest = new_block;
+        chain->block_count++;
+
+        /* Backup blockchain */
+        backup_blockchain(chain);
+
+        printf("New block #%d created with %d transaction(s)\n", new_block->index + 1, new_block->transaction_count);
+
+        /* Reset tx_count for next pool */
+        tx_count = 0;
+
+        /* Return mined block */
+        return new_block;
 }
 
 /**
@@ -622,6 +700,8 @@ Transaction *extract_transactions()
                 if (count >= MAX_TRANSACTIONS)
                         break; /* Prevent overflow */
         }
+        printf("Extracted %d transactions from pool\n", count);
+
         fclose(file);
 
         /* Clear TX_POOL file after extraction */
@@ -630,4 +710,35 @@ Transaction *extract_transactions()
                 fclose(file);
 
         return transactions;
+}
+
+/**
+ * get_unspent_balance - Checks the unspent balance of a wallet
+ * @address: Wallet address to check
+ * Return: Available balance including initial balance
+ */
+double get_unspent_balance(const char *address)
+{
+        FILE *file = fopen(TX_FILE, "rb");
+        if (!file)
+        {
+                printf("Error opening transaction history file.\n");
+                return 100.00; // Default balance for new wallets
+        }
+
+        double balance = 100.00; // Start with initial balance
+        Transaction tx;
+
+        /* Read all transactions from history */
+        while (fread(&tx, sizeof(Transaction), 1, file))
+        {
+                if (strcmp(tx.from_address, address) == 0)
+                        balance -= tx.amount; // Deduct spent amount
+
+                if (strcmp(tx.to_address, address) == 0)
+                        balance += tx.amount; // Add received amount
+        }
+
+        fclose(file);
+        return balance;
 }

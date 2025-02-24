@@ -60,9 +60,6 @@ int save_wallet(const char *email, const char *private_key,
 
         fwrite(&wallet, sizeof(StoredWallet), 1, file);
 
-        printf("Wallet public key %s saved successfully.\n", wallet.address);
-        printf("Wallet private key %s saved successfully.\n", wallet.private_key);
-
         fclose(file);
         return 1;
 }
@@ -102,7 +99,6 @@ int update_wallet_record(const Wallet *updated_wallet)
                 wallets = new_wallets;
                 wallets[wallet_count++] = temp_wallet;
         }
-        printf("Wallet count: %zu\n", wallet_count);
         fclose(file);
 
         // Find the wallet by address and update it
@@ -111,12 +107,8 @@ int update_wallet_record(const Wallet *updated_wallet)
         {
                 if (strcmp(wallets[i].address, updated_wallet->address) == 0)
                 {
-                        printf("Wallet found. Email: %s\n", wallets[i].email);
                         // Update wallet details
                         wallets[i].balance = updated_wallet->balance;
-                        // strncpy(wallets[i].email, updated_wallet->email, MAX_EMAIL - 1);
-                        // strncpy(wallets[i].private_key, updated_wallet->private_key, HASH_LENGTH - 1);
-                        // strncpy(wallets[i].kitchen_name, updated_wallet->kitchen_name, MAX_NAME - 1);
                         updated = 1;
                         break;
                 }
@@ -130,159 +122,6 @@ int update_wallet_record(const Wallet *updated_wallet)
         }
 
         // Overwrite the wallet file with updated records
-        file = fopen(WALLETS_FILE, "wb");
-        if (!file)
-        {
-                printf("Error opening wallet file for writing.\n");
-                free(wallets);
-                return 0;
-        }
-
-        fwrite(wallets, sizeof(StoredWallet), wallet_count, file);
-        fclose(file);
-        free(wallets);
-
-        return 1;
-}
-
-/**
- * increment_wallet_balance - Increase the balance of a wallet
- * @address: The wallet address
- * @amount: The amount to add
- * Return: 1 on success, 0 on failure
- */
-int increment_wallet_balance(const char *address, double amount)
-{
-        if (!address || amount <= 0)
-                return 0;
-
-        FILE *file = fopen(WALLETS_FILE, "rb");
-        if (!file)
-        {
-                printf("Error opening wallet file.\n");
-                return 0;
-        }
-
-        StoredWallet *wallets = NULL;
-        size_t wallet_count = 0;
-        StoredWallet temp_wallet;
-
-        /* Load all wallets into memory */
-        while (fread(&temp_wallet, sizeof(StoredWallet), 1, file))
-        {
-                StoredWallet *new_wallets = realloc(wallets, (wallet_count + 1) * sizeof(StoredWallet));
-                if (!new_wallets)
-                {
-                        free(wallets);
-                        fclose(file);
-                        printf("Memory allocation error.\n");
-                        return 0;
-                }
-                wallets = new_wallets;
-                wallets[wallet_count++] = temp_wallet;
-        }
-        fclose(file);
-
-        /* Find the wallet and update its balance */
-        int updated = 0;
-        for (size_t i = 0; i < wallet_count; i++)
-        {
-                if (strcmp(wallets[i].address, address) == 0)
-                {
-                        wallets[i].balance += amount;
-                        updated = 1;
-                        break;
-                }
-        }
-
-        if (!updated)
-        {
-                printf("Wallet record not found.\n");
-                free(wallets);
-                return 0;
-        }
-
-        /* Save updated wallets */
-        file = fopen(WALLETS_FILE, "wb");
-        if (!file)
-        {
-                printf("Error opening wallet file for writing.\n");
-                free(wallets);
-                return 0;
-        }
-
-        fwrite(wallets, sizeof(StoredWallet), wallet_count, file);
-        fclose(file);
-        free(wallets);
-
-        return 1;
-}
-
-/**
- * decrement_wallet_balance - Decrease the balance of a wallet
- * @address: The wallet address
- * @amount: The amount to subtract
- * Return: 1 on success, 0 on failure (insufficient funds or wallet not found)
- */
-int decrement_wallet_balance(const char *address, double amount)
-{
-        if (!address || amount <= 0)
-                return 0;
-
-        FILE *file = fopen(WALLETS_FILE, "rb");
-        if (!file)
-        {
-                printf("Error opening wallet file.\n");
-                return 0;
-        }
-
-        StoredWallet *wallets = NULL;
-        size_t wallet_count = 0;
-        StoredWallet temp_wallet;
-
-        /* Load all wallets into memory */
-        while (fread(&temp_wallet, sizeof(StoredWallet), 1, file))
-        {
-                StoredWallet *new_wallets = realloc(wallets, (wallet_count + 1) * sizeof(StoredWallet));
-                if (!new_wallets)
-                {
-                        free(wallets);
-                        fclose(file);
-                        printf("Memory allocation error.\n");
-                        return 0;
-                }
-                wallets = new_wallets;
-                wallets[wallet_count++] = temp_wallet;
-        }
-        fclose(file);
-
-        /* Find the wallet and update its balance */
-        int updated = 0;
-        for (size_t i = 0; i < wallet_count; i++)
-        {
-                if (strcmp(wallets[i].address, address) == 0)
-                {
-                        if (wallets[i].balance < amount)
-                        {
-                                printf("Insufficient funds.\n");
-                                free(wallets);
-                                return 0;
-                        }
-
-                        wallets[i].balance -= amount;
-                        updated = 1;
-                        break;
-                }
-        }
-
-        if (!updated)
-        {
-                printf("Wallet record not found.\n");
-                free(wallets);
-                return 0;
-        }
-
-        /* Save updated wallets */
         file = fopen(WALLETS_FILE, "wb");
         if (!file)
         {
@@ -413,8 +252,14 @@ Wallet *load_wallet_by_public_key(const char *public_key)
                         if (wallet)
                         {
                                 strncpy(wallet->email, stored_wallet.email, MAX_EMAIL - 1);
+                                wallet->email[MAX_EMAIL - 1] = '\0'; // Ensure null termination
+
                                 strncpy(wallet->private_key, stored_wallet.private_key, HASH_LENGTH - 1);
+                                wallet->private_key[HASH_LENGTH - 1] = '\0'; // Ensure null termination
+
                                 strncpy(wallet->address, stored_wallet.address, HASH_LENGTH - 1);
+                                wallet->address[HASH_LENGTH - 1] = '\0'; // Ensure null termination
+
                                 wallet->balance = stored_wallet.balance;
                                 wallet->user_type = stored_wallet.user_type;
                                 // strncpy(wallet->kitchen_name, stored_wallet.kitchen_name, MAX_NAME - 1);
@@ -502,11 +347,93 @@ Wallet *reload_wallet(Wallet *current_wallet)
                 return NULL;
 
         Wallet *temp_wallet = load_wallet_by_public_key(current_wallet->address);
+
         if (temp_wallet)
         {
-                free(current_wallet); // Free the old wallet before replacing
-                return temp_wallet;   // Return the new updated wallet
+                // Only free current_wallet if it's dynamically allocated
+                if (current_wallet != temp_wallet)
+                        free(current_wallet);
+
+                return temp_wallet;
         }
 
-        return current_wallet; // If loading fails, keep the old one
+        return current_wallet; // Keep the old one if loading fails
+}
+
+/**
+ * add_kitchen - Add a new kitchen vendor to the list
+ * @vendor_id: Unique vendor ID
+ * @kitchen_name: Name of the kitchen
+ * @email: Vendor's email
+ * @wallet_address: Wallet address for the kitchen
+ */
+void add_kitchen(const char *kitchen_name, const char *email, const char *wallet_address)
+{
+        FILE *file = fopen("kitchens.txt", "a"); // Open the file in append mode
+        if (!file)
+        {
+                printf("Failed to open file for appending!\n");
+                return;
+        }
+
+        // Write the kitchen information to the file
+        fprintf(file, "%s,%s,%s,%.2f\n", kitchen_name, email, wallet_address, 100.0); // Default balance set to 100.0
+
+        fclose(file);
+}
+
+void trim_newline(char *str)
+{
+        size_t len = strlen(str);
+        if (len > 0 && str[len - 1] == '\n')
+                str[len - 1] = '\0';
+}
+
+/**
+ * get_kitchen_vendor - Get kitchen vendor by index
+ * @kitchen_index: Index of the kitchen vendor
+ * Return: Pointer to the kitchen vendor or NULL if not found
+ */
+VendorProfile *get_kitchen_vendor(int kitchen_index)
+{
+        FILE *file = fopen("kitchens.txt", "r");
+        if (!file)
+        {
+                printf("Failed to open kitchens file.\n");
+                return NULL;
+        }
+
+        char line[256];
+        int current_index = 0;
+        while (fgets(line, sizeof(line), file))
+        {
+                if (current_index == kitchen_index)
+                {
+                        VendorProfile *kitchen = malloc(sizeof(VendorProfile));
+                        if (!kitchen)
+                        {
+                                printf("Memory allocation failed.\n");
+                                fclose(file);
+                                return NULL;
+                        }
+
+                        // Debugging: Print the line being read
+                        printf("Raw line from file: %s\n", line);
+
+                        sscanf(line, "%99[^,],%99[^,],%255[^,],%lf",
+                               kitchen->kitchen_name, kitchen->email,
+                               kitchen->wallet_address, &kitchen->balance);
+                        trim_newline(kitchen->wallet_address); // Remove newline if present
+
+                        // Debugging: Print extracted wallet address
+                        printf("Extracted Wallet Address: %s\n", kitchen->wallet_address);
+
+                        fclose(file);
+                        return kitchen;
+                }
+                current_index++;
+        }
+
+        fclose(file);
+        return NULL;
 }
