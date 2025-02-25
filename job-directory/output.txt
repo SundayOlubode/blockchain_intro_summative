@@ -2,20 +2,24 @@
 
 Block #1:
   Title: Backend Developer
-  Current Hash: 8271bf6148ac22844d79768ee42091711d3539c2b132584ac8a9c32e6459f370
+  Current Hash: b0cc9f732de26ba9f77695c63856d3f044e191f71722b1fab1e51a6cf09893ff
   Next Block: Data Engineer
 Block #2:
   Title: Data Engineer
-  Current Hash: afb3df6f2a5e6350b030ed73ec0e4089788097f97b85cd3146682cafb4b4ed39
+  Current Hash: 78754c38f8ed0fd0949081abf54333774c94a1bcc92566bc2009a9a2e08f3aff
   Next Block: DevOps Specialist
 Block #3:
   Title: DevOps Specialist
-  Current Hash: c89c1979cf7c7eec2ce314b099ab2aec8af357b347bf79330604076a4b13a971
-  Next Block: Mechaanic
+  Current Hash: 6e448a5968b09609bd4ec8efeff21c6de8d56c703837eaa4d23ab7ce9a5634a3
+  Next Block: Singer
 Block #4:
-  Title: Mechaanic
-  Current Hash: 77e27e757391f3f6b5584aff282043dba9b5f5571bf03eba35bfe3bfe9dda230
+  Title: Singer
+  Current Hash: 0a790deb53d6e40187ddf74b71e0911db3e17afa48cbc26ee87ebbfa9f4c2225
+  Next Block: Singer
+Block #5:
+  Title: Singer
+  Current Hash: cb2bfbf62ed629601fdc8efde3c0c7c13c90c7834210cbbf9a12d18c9814f12b
 
 === VERIFICATION SUMMARY ===
-Total blocks: 4
+Total blocks: 5
 Blockchain integrity: INTACT
