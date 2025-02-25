@@ -109,8 +109,6 @@ int main(void)
                                 studentDetail = create_student_profile(email);
                                 profile = studentDetail ? &studentDetail->profile : NULL;
                                 current_wallet = studentDetail ? &studentDetail->wallet : NULL;
-                                printf("Student wallet address: %s\n", current_wallet->address);
-                                printf("Student wallet private key: %s\n", current_wallet->private_key);
                         }
                         else if (strstr(email, STAFF_DOMAIN))
                         {

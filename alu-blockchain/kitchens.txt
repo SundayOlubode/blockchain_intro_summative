@@ -1,3 +1,0 @@
-Pius Cuisine,pius@vendor.com,0x000pius000000cuisine000000,100.00
-Joshua's Kitchen,joshua@vendor.com,0x000joshua000000kitchen000000,100.00
-Pascal's Kitchen,pascal@vendor.com,0x000pascal000000kitchen000000,100.00
