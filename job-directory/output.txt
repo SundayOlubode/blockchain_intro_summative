@@ -1,0 +1,21 @@
+=== BLOCKCHAIN INTEGRITY VERIFICATION ===
+
+Block #1:
+  Title: Backend Developer
+  Current Hash: 8271bf6148ac22844d79768ee42091711d3539c2b132584ac8a9c32e6459f370
+  Next Block: Data Engineer
+Block #2:
+  Title: Data Engineer
+  Current Hash: afb3df6f2a5e6350b030ed73ec0e4089788097f97b85cd3146682cafb4b4ed39
+  Next Block: DevOps Specialist
+Block #3:
+  Title: DevOps Specialist
+  Current Hash: c89c1979cf7c7eec2ce314b099ab2aec8af357b347bf79330604076a4b13a971
+  Next Block: Mechaanic
+Block #4:
+  Title: Mechaanic
+  Current Hash: 77e27e757391f3f6b5584aff282043dba9b5f5571bf03eba35bfe3bfe9dda230
+
+=== VERIFICATION SUMMARY ===
+Total blocks: 4
+Blockchain integrity: INTACT

@@ -136,6 +136,7 @@ int add_job_listing(JobBlockchain *chain, const char *title,
                     const char *description)
 {
         JobListing *new_job = malloc(sizeof(JobListing));
+        JobListing *last = chain->head;
 
         if (new_job == NULL)
                 return (0);
@@ -146,17 +147,30 @@ int add_job_listing(JobBlockchain *chain, const char *title,
         strncpy(new_job->location, location, MAX_LOCATION_LENGTH - 1);
         strncpy(new_job->description, description, MAX_DESCRIPTION_LENGTH - 1);
         new_job->timestamp = time(NULL);
+        new_job->next = NULL;
 
         if (chain->head == NULL)
+        {
+                /* First block */
                 strcpy(new_job->prevHash, "0000000000000000000000000000000000000000000000000000000000000000");
+                calculate_hash(new_job);
+                chain->head = new_job;
+        }
         else
-                strcpy(new_job->prevHash, chain->head->currentHash);
+        {
+                /* Find the last block in the chain */
+                while (last->next != NULL)
+                        last = last->next;
 
-        calculate_hash(new_job);
-        new_job->next = chain->head;
-        chain->head = new_job;
+                /* Set new block's prevHash to last block's currentHash */
+                strcpy(new_job->prevHash, last->currentHash);
+                calculate_hash(new_job);
+
+                /* Append to the end of the chain */
+                last->next = new_job;
+        }
+
         chain->count++;
-
         return (1);
 }
 
@@ -207,28 +221,94 @@ JobListing *search_jobs(JobBlockchain *chain, const char *keyword)
  * @chain: Blockchain to verify
  * Return: 1 if intact, 0 if compromised
  */
+/**
+ * verify_integrity - Check blockchain integrity and write results to file
+ * @chain: Blockchain to verify
+ * Return: 1 if intact, 0 if compromised
+ */
 int verify_integrity(JobBlockchain *chain)
 {
         JobListing *current;
         char temp_hash[HASH_LENGTH + 1];
+        FILE *output_file;
+        int block_count = 0;
+        int is_valid = 1;
+
+        /* Open output file for writing */
+        output_file = fopen("output.txt", "w");
+        if (output_file == NULL)
+        {
+                perror("Error opening output.txt");
+                return (-1);
+        }
+
+        fprintf(output_file, "=== BLOCKCHAIN INTEGRITY VERIFICATION ===\n\n");
 
         if (chain->head == NULL)
-                return (1);
-
-        current = chain->head;
-        while (current->next != NULL)
         {
-                if (strcmp(current->prevHash, current->next->currentHash) != 0)
-                        return (0);
+                fprintf(output_file, "Blockchain is empty. Integrity valid.\n");
+                fclose(output_file);
+                return (1);
+        }
 
+        /* First pass: check hash recalculation and collect block info */
+        current = chain->head;
+        while (current != NULL)
+        {
+                block_count++;
+                fprintf(output_file, "Block #%d:\n", block_count);
+                fprintf(output_file, "  Title: %s\n", current->title);
+                fprintf(output_file, "  Current Hash: %s\n", current->currentHash);
+                if (current->next != NULL)
+                {
+                        fprintf(output_file, "  Next Block: %s\n", current->next->title);
+                }
+
+                /* Verify hash hasn't been tampered with */
                 strcpy(temp_hash, current->currentHash);
                 calculate_hash(current);
                 if (strcmp(temp_hash, current->currentHash) != 0)
-                        return (0);
+                {
+                        fprintf(output_file, "  HASH TAMPERING: Recalculated hash doesn't match stored hash\n");
+                        fprintf(output_file, "  Stored hash: %s\n", temp_hash);
+                        fprintf(output_file, "  Recalculated hash: %s\n", current->currentHash);
+                        is_valid = 0;
+                }
+                else
+                {
+                        /* Restore the original hash */
+                        strcpy(current->currentHash, temp_hash);
+                }
 
                 current = current->next;
         }
-        return (1);
+
+        /* Second pass: check chain integrity - this matches original logic */
+        current = chain->head;
+        while (current->next != NULL)
+        {
+                /* Check if the prevHash of the next block matches this block's currentHash */
+                if (strcmp(current->currentHash, current->next->prevHash) != 0)
+                {
+                        fprintf(output_file, "\nBlock #%d -> Block #%d integrity error:\n",
+                                block_count - (current->next->next ? 2 : 1),
+                                block_count - (current->next->next ? 1 : 0));
+                        fprintf(output_file, "  Current block hash: %s\n", current->currentHash);
+                        fprintf(output_file, "  Next block prevHash: %s\n", current->next->prevHash);
+                        fprintf(output_file, "  HASH MISMATCH: Chain integrity compromised\n");
+                        is_valid = 0;
+                }
+
+                current = current->next;
+        }
+
+        fprintf(output_file, "\n=== VERIFICATION SUMMARY ===\n");
+        fprintf(output_file, "Total blocks: %d\n", block_count);
+        fprintf(output_file, "Blockchain integrity: %s\n",
+                is_valid ? "INTACT" : "COMPROMISED");
+
+        fclose(output_file);
+        return (is_valid);
 }
 
 /**
